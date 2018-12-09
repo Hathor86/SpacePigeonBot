@@ -2,10 +2,11 @@
 import discord
 import logging
 import asyncio
+import config
 from dataLayer import DataLayer
 from discord.ext import commands
 
-TOKEN = ''
+TOKEN = config.TOKEN
 
 logger = logging.getLogger("botLogger")
 logger.setLevel(logging.INFO)
@@ -83,32 +84,37 @@ def SanityCheck():
 async def checkNotify():
     await client.wait_until_ready()
     while not client.is_closed:
-        logger.debug("Check for notification")
+        logger.debug("Check for notification")        
         
         serverToNotify = dataLayer.GetServerToNotify()
-        for server in serverToNotify:
 
-            servertoPing = client.get_server(server.ServerId)
-            for role in servertoPing.roles:
+        if serverToNotify:
 
-                if role.id == server.RoleId:
-                    
-                    channel = client.get_channel(server.ChannelId)
+            newItemsToBuy = dataLayer.WhatNew()
+            local_discordFrontierStoreEmbed = discordFrontierStoreEmbed
 
-                    newItemsToBuy = dataLayer.WhatNew()
-                    local_discordFrontierStoreEmbed = discordFrontierStoreEmbed
-                    if len(newItemsToBuy) == 0:
-                        await client.send_message(channel, "Rien de neuf à acheter")
-                    else:
-                        for item in newItemsToBuy:
-                            if item.DeltaPrice == None:
-                                local_discordFrontierStoreEmbed.add_field(name = item.Name, value = "A **{0.Value}€** seulement!".format(item), inline = False)
-                            else:
-                                local_discordFrontierStoreEmbed.add_field(name = item.Name, value = "A **{0.Value} €** seulement!\nUne réduction de **{0.DeltaPricePercent:.2f}%** soit une économie de **{0.DeltaPrice}€** ! Rendez-vous compte!".format(item), inline = False)
-                        
-                        await client.send_message(channel, "Il y a du neuf sur le store {0.mention} !".format(role), embed=local_discordFrontierStoreEmbed)                        
-                    dataLayer.SetServerAsNotified(server.ServerId)
-                    break
+            for item in newItemsToBuy:
+                if item.DeltaPrice == None:
+                    local_discordFrontierStoreEmbed.add_field(name = item.Name, value = "A **{0.Value}€** seulement!".format(item), inline = False)
+                else:
+                    local_discordFrontierStoreEmbed.add_field(name = item.Name, value = "A **{0.Value} €** seulement!\nUne réduction de **{0.DeltaPricePercent:.2f}%** soit une économie de **{0.DeltaPrice}€** ! Rendez-vous compte!".format(item), inline = False)
+
+
+            for server in serverToNotify:
+
+                servertoPing = client.get_server(server.ServerId)
+                for role in servertoPing.roles:
+
+                    if role.id == server.RoleId:
+                        channel = client.get_channel(server.ChannelId)
+
+                        if len(newItemsToBuy) == 0:
+                            await client.send_message(channel, "Rien de neuf à acheter")
+                        else:                        
+                            await client.send_message(channel, "Il y a du neuf sur le store {0.mention} !".format(role), embed=local_discordFrontierStoreEmbed)                        
+                            
+                        dataLayer.SetServerAsNotified(server.ServerId)
+                        break
 
         await asyncio.sleep(300)
 
@@ -185,7 +191,7 @@ async def on_ready():
     logger.info("Logged in as {0.user.name}".format(client))
     logger.debug("Client id is {0.user.id}".format(client))
 
-    SanityCheck()
+    #SanityCheck()
 
 
 client.loop.create_task(checkNotify())
