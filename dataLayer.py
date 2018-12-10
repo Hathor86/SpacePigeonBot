@@ -1,16 +1,17 @@
 import psycopg2
 import logging
+import config
 from frontierStoreCrawler import FrontierStoreCrawler
 from frontierStoreCrawler import FrontierStoreObject
 
 logger = logging.getLogger("dataLayerLogger")
-logger.setLevel(logging.INFO)
+logger.setLevel(config.logLevel)
 
 formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
 
 #consolehandler
 console = logging.StreamHandler()
-console.setLevel(logging.INFO)
+console.setLevel(config.logLevel)
 console.setFormatter(formatter)
 logger.addHandler(console)
 

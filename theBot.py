@@ -9,13 +9,13 @@ from discord.ext import commands
 TOKEN = config.TOKEN
 
 logger = logging.getLogger("botLogger")
-logger.setLevel(logging.INFO)
+logger.setLevel(config.logLevel)
 
 formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
 
 #consolehandler
 console = logging.StreamHandler()
-console.setLevel(logging.INFO)
+console.setLevel(config.logLevel)
 console.setFormatter(formatter)
 logger.addHandler(console)
 
@@ -36,7 +36,9 @@ def SanityCheck():
     allServerId = []
     global allRegisteredServer
 
-    for server in dataLayer.GetAllServer():
+    allRegisteredServer = dataLayer.GetAllServer()
+
+    for server in allRegisteredServer:
         currentRegistered.append(server.ServerId)
         currentRegisteredRole.append(server.RoleId)
 
@@ -47,7 +49,12 @@ def SanityCheck():
         logger.debug("Checking {0.name}".format(server))
 
         allServerId.append(server.id)
-        if not server.id in currentRegistered:
+        isListOk = False
+        for serverId in currentRegistered:
+            if serverId == server.id:
+                isListOk = True
+
+        if not isListOk:
 
             logger.info("Server {0.name} not registered, trying registering it".format(server))
 
@@ -69,11 +76,18 @@ def SanityCheck():
            
 
     
-    logger.debug("Checking registered server in DB")
+    logger.info("Checking registered server in DB")
+    logger.debug("Registered id: {0}".format(currentRegistered))
 
     for serverid in currentRegistered:
-        if not serverid in allServerId:
-            logger.info("Server {0.id} doesn(t use the bot anymore, removing it")
+
+        isListOk = False
+        for serverid2 in allServerId:
+            if serverid2 == serverId:
+                isListOk = True
+        
+        if isListOk:
+            logger.info("Server {0} doesn't use the bot anymore, removing it".format(str(serverid)))
             dataLayer.UnregisterDiscordServerRole(serverid)
     
     allRegisteredServer = dataLayer.GetAllServer()
@@ -82,11 +96,13 @@ def SanityCheck():
 
 
 async def checkNotify():
+    
     await client.wait_until_ready()
     while not client.is_closed:
         logger.debug("Check for notification")        
         
         serverToNotify = dataLayer.GetServerToNotify()
+        logger.debug("server to notify: {0}".format(serverToNotify))
 
         if serverToNotify:
 
@@ -103,6 +119,7 @@ async def checkNotify():
             for server in serverToNotify:
 
                 servertoPing = client.get_server(server.ServerId)
+                logger.debug("server to notify: {0} - id:{1.ServerId}".format(servertoPing, server))
                 for role in servertoPing.roles:
 
                     if role.id == server.RoleId:
@@ -157,6 +174,7 @@ async def on_message(message):
 
 @client.event
 async def on_server_join(server):
+
     roleOk = False
     for role in server.roles:
             if role.name == "Space Pigeon":
@@ -181,6 +199,7 @@ async def on_server_join(server):
 
 @client.event
 async def on_server_remove(server):
+
     logger.info("Server {0.name} removed the bot, unregistering it".format(server))
     dataLayer.UnregisterDiscordServerRole(server.id)
 
@@ -188,10 +207,11 @@ async def on_server_remove(server):
 
 @client.event
 async def on_ready():
+
     logger.info("Logged in as {0.user.name}".format(client))
     logger.debug("Client id is {0.user.id}".format(client))
 
-    #SanityCheck()
+    SanityCheck()
 
 
 client.loop.create_task(checkNotify())

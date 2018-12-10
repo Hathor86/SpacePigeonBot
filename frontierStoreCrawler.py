@@ -2,19 +2,20 @@ import re
 import json
 import math
 import logging
+import config
 from time import sleep
 from html.parser import HTMLParser
 from bs4 import BeautifulSoup
 from urllib.request import urlopen
 
 logger = logging.getLogger("storeCrawlerLogger")
-logger.setLevel(logging.INFO)
+logger.setLevel(config.logLevel)
 
 formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
 
 #consolehandler
 console = logging.StreamHandler()
-console.setLevel(logging.INFO)
+console.setLevel(config.logLevel)
 console.setFormatter(formatter)
 logger.addHandler(console)
 
