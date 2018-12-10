@@ -185,14 +185,14 @@ async def on_server_join(server):
     if not roleOk:
         for chan in server.channels:
             if chan.type == discord.ChannelType.text:
-                client.send_message(chan, "Pas de rôle ""Space Pigeon"" pour ce serveur. Créez-en un et tapez .register")
+                await client.send_message(chan, "Pas de rôle ""Space Pigeon"" pour ce serveur. Créez-en un et tapez .register")
                 logger.warn("No ""Space Pigeon"" role for server {0.name}".format(server))
                 break
 
     for channel in server.channels:
         if channel.type  == discord.ChannelType.text:
             dataLayer.SetChannelId(server.id, channel.id)
-            client.send_message(channel, "Je communiquerai dans ce canal, mentionnez-moi en indiquant ""par ici"" dans un autre canal pour changer")
+            await client.send_message(channel, "Je communiquerai dans ce canal, mentionnez-moi en indiquant ""par ici"" dans un autre canal pour changer")
             break
 
 
