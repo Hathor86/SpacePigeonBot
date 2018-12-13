@@ -24,7 +24,6 @@ client = commands.Bot(command_prefix = ".", description = "Space Pigeon Bot")
 dataLayer = DataLayer()
 allRegisteredServer = []
 
-discordFrontierStoreEmbed = discord.Embed(title="Frontier Store", url="https://www.frontierstore.net/eur/game-extras/elite-dangerous-game-extras.html")
 
 
 def SanityCheck():
@@ -86,7 +85,7 @@ def SanityCheck():
             if serverid2 == serverId:
                 isListOk = True
         
-        if isListOk:
+        if not isListOk:
             logger.info("Server {0} doesn't use the bot anymore, removing it".format(str(serverid)))
             dataLayer.UnregisterDiscordServerRole(serverid)
     
@@ -107,13 +106,13 @@ async def checkNotify():
         if serverToNotify:
 
             newItemsToBuy = dataLayer.WhatNew()
-            local_discordFrontierStoreEmbed = discordFrontierStoreEmbed
+            discordFrontierStoreEmbed = discord.Embed(title="Frontier Store", url="https://www.frontierstore.net/eur/game-extras/elite-dangerous-game-extras.html")
 
             for item in newItemsToBuy:
                 if item.DeltaPrice == None:
-                    local_discordFrontierStoreEmbed.add_field(name = item.Name, value = "A **{0.Value}€** seulement!".format(item), inline = False)
+                    discordFrontierStoreEmbed.add_field(name = item.Name, value = "A **{0.Value}€** seulement!".format(item), inline = False)
                 else:
-                    local_discordFrontierStoreEmbed.add_field(name = item.Name, value = "A **{0.Value} €** seulement!\nUne réduction de **{0.DeltaPricePercent:.2f}%** soit une économie de **{0.DeltaPrice}€** ! Rendez-vous compte!".format(item), inline = False)
+                    discordFrontierStoreEmbed.add_field(name = item.Name, value = "A **{0.Value} €** seulement!\nUne réduction de **{0.DeltaPricePercent:.2f}%** soit une économie de **{0.DeltaPrice}€** ! Rendez-vous compte!".format(item), inline = False)
 
 
             for server in serverToNotify:
@@ -128,7 +127,7 @@ async def checkNotify():
                         if len(newItemsToBuy) == 0:
                             await client.send_message(channel, "Rien de neuf à acheter")
                         else:                        
-                            await client.send_message(channel, "Il y a du neuf sur le store {0.mention} !".format(role), embed=local_discordFrontierStoreEmbed)                        
+                            await client.send_message(channel, "Il y a du neuf sur le store {0.mention} !".format(role), embed=discordFrontierStoreEmbed)                        
                             
                         dataLayer.SetServerAsNotified(server.ServerId)
                         break
@@ -211,7 +210,7 @@ async def on_ready():
     logger.info("Logged in as {0.user.name}".format(client))
     logger.debug("Client id is {0.user.id}".format(client))
 
-    SanityCheck()
+    #SanityCheck()
 
 
 client.loop.create_task(checkNotify())
