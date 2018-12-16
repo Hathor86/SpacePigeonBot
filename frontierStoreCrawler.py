@@ -8,7 +8,7 @@ from html.parser import HTMLParser
 from bs4 import BeautifulSoup
 from urllib.request import urlopen
 
-logger = logging.getLogger("storeCrawlerLogger")
+logger = logging.getLogger(__name__)
 logger.setLevel(config.logLevel)
 
 formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")

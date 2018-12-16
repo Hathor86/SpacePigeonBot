@@ -4,7 +4,7 @@ import config
 from frontierStoreCrawler import FrontierStoreCrawler
 from frontierStoreCrawler import FrontierStoreObject
 
-logger = logging.getLogger("dataLayerLogger")
+logger = logging.getLogger(__name__)
 logger.setLevel(config.logLevel)
 
 formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
@@ -76,7 +76,7 @@ class DataLayer():
         cursor.execute("INSERT INTO storeHistory(id, name, price, url) SELECT id, name, price, url FROM currentStore")
         cursor.execute("DELETE FROM currentStore")
 
-        logger.debug("History deleted")
+        logger.debug("Current store deleted")
 
         storeCrawler = FrontierStoreCrawler()
         storeCrawler.Crawl()
@@ -85,8 +85,13 @@ class DataLayer():
             logger.debug("Inserting {0.Name} into DB".format(item))
             cursor.execute("INSERT INTO CurrentStore(id, name, price, url) VALUES(%s, %s, %s, %s)", (item.ID, item.Name, item.Value, item.Url))
 
-        cursor.execute("UPDATE RegisteredBot SET hasBeenNotified = 'f'")
-        logger.debug("Setting notification")
+        logger.debug("Cleaning history")
+        cursor.execute("DELETE FROM StoreHistory WHERE isLastRun = 'f' AND historydate > current_timestamp - interval '8 hour'")
+
+        logger.debug("Checking if notifications are necessary")
+        if self.WhatNew():
+            cursor.execute("UPDATE RegisteredBot SET hasBeenNotified = 'f'")
+            logger.debug("Setting notification")
 
         connection.commit()        
 

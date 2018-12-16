@@ -2,9 +2,11 @@
 import discord
 import logging
 import asyncio
+import random
+import re
 import config
 from dataLayer import DataLayer
-from discord.ext import commands
+#from discord.ext import commands
 
 ############################
 # Empty config.py sample   #
@@ -16,7 +18,7 @@ from discord.ext import commands
 
 TOKEN = config.TOKEN
 
-logger = logging.getLogger("botLogger")
+logger = logging.getLogger(__name__)
 logger.setLevel(config.logLevel)
 
 formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
@@ -27,8 +29,8 @@ console.setLevel(config.logLevel)
 console.setFormatter(formatter)
 logger.addHandler(console)
 
-#client = discord.Client()
-client = commands.Bot(command_prefix = ".", description = "Space Pigeon Bot")
+client = discord.Client()
+#client = commands.Bot(command_prefix = ".", description = "Space Pigeon Bot")
 dataLayer = DataLayer()
 allRegisteredServer = []
 
@@ -132,38 +134,44 @@ async def checkNotify():
                     if role.id == server.RoleId:
                         channel = client.get_channel(server.ChannelId)
 
-                        if len(newItemsToBuy) == 0:
-                            await client.send_message(channel, "Rien de neuf à acheter")
-                        else:                        
+                        if len(newItemsToBuy) > 0:                    
                             await client.send_message(channel, "Il y a du neuf sur le store {0.mention} !".format(role), embed=discordFrontierStoreEmbed)                        
                             
                         dataLayer.SetServerAsNotified(server.ServerId)
                         break
 
-        await asyncio.sleep(300)
+        await asyncio.sleep(60)
 
 
 
-@client.command(pass_context = True)
-async def register(context):
+#async def refreshData():
+#    await client.wait_until_ready()
+#    while not client.is_closed:
+#        PerformManualRefresh()
+#        await asyncio.sleep(random.randint(2700, 5400)) #45min to 1h30
 
-    global allRegisteredServer
 
-    if context.message.author.server_permissions.administrator:
-        for server in allRegisteredServer:
-            if server.ServerId == context.message.server.id:
-                return
 
-        for role in context.message.server.roles:
-            if role.name == "Space Pigeon":
-                logger.info("Server {0.name} add the bot and has a role ""Space Pigeon"", registering it".format(context.message.server))
-                dataLayer.RegisterDiscordServerRole(context.message.server.id, role.id)
-                allRegisteredServer = dataLayer.GetAllServer()
-                return
-        
-        client.say("Pas de rôle ""Space Pigeon"" pour ce serveur. Créez-en et tapez .register")
-    else:
-        client.say("T'es pas admin, pigeon!")
+#@client.command(pass_context = True)
+#async def register(context):
+#
+#    global allRegisteredServer
+#
+#    if context.message.author.server_permissions.administrator:
+#        for server in allRegisteredServer:
+#            if server.ServerId == context.message.server.id:
+#                return
+#
+#        for role in context.message.server.roles:
+#            if role.name == "Space Pigeon":
+#                logger.info("Server {0.name} add the bot and has a role ""Space Pigeon"", registering it".format(context.message.server))
+#                dataLayer.RegisterDiscordServerRole(context.message.server.id, role.id)
+#                allRegisteredServer = dataLayer.GetAllServer()
+#                return
+#        
+#        client.say("Pas de rôle ""Space Pigeon"" pour ce serveur. Créez-en et tapez .register")
+#    else:
+#        client.say("T'es pas admin, pigeon!")
 
 
 
@@ -172,10 +180,23 @@ async def on_message(message):
 
     if message.author.server_permissions.administrator: 
         if client.user.mentioned_in(message):
-            if "par ici" in message.content:
-                dataLayer.SetChannelId(message.server.id, message.channel.id)
-                await client.send_message(message.channel, "Ok, {0.author.mention}, je communiquerai les infos dans ce canal".format(message))
 
+            match = re.match(r"^.*\s+!(?P<command>\S*)", message.content)
+            logger.debug(match)
+            logger.debug(message.content)
+            if match:
+                command = match.group("command")
+                
+                #List of command
+                if command == "channel":
+                    dataLayer.SetChannelId(message.server.id, message.channel.id)
+                    await client.send_message(message.channel, "Ok, {0.author.mention}, je communiquerai les infos dans ce canal".format(message))
+                elif command == "store":
+                    dataLayer.SetChannelId(message.server.id, message.channel.id)
+                    await client.send_message(message.channel, "Ok, {0.author.mention}, je vais vérifier".format(message))
+                    dataLayer.RefreshFromStore()
+                    #if not dataLayer.WhatNew:
+                    #    await client.send_message(message.channel, "Désolé, rien de nouveau sur le store")
         
 
 
