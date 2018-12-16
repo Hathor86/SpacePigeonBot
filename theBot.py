@@ -6,6 +6,14 @@ import config
 from dataLayer import DataLayer
 from discord.ext import commands
 
+############################
+# Empty config.py sample   #
+#                          #
+# import logging           #
+# TOKEN = ''               #
+# logLevel = logging.DEBUG #
+############################
+
 TOKEN = config.TOKEN
 
 logger = logging.getLogger("botLogger")
