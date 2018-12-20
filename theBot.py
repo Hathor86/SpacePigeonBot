@@ -6,7 +6,6 @@ import random
 import re
 import config
 from dataLayer import DataLayer
-#from discord.ext import commands
 
 ############################
 # Empty config.py sample   #
@@ -17,6 +16,8 @@ from dataLayer import DataLayer
 ############################
 
 TOKEN = config.TOKEN
+
+dataLocker = asyncio.Lock()
 
 logger = logging.getLogger(__name__)
 logger.setLevel(config.logLevel)
@@ -30,7 +31,6 @@ console.setFormatter(formatter)
 logger.addHandler(console)
 
 client = discord.Client()
-#client = commands.Bot(command_prefix = ".", description = "Space Pigeon Bot")
 dataLayer = DataLayer()
 allRegisteredServer = []
 
@@ -104,11 +104,20 @@ def SanityCheck():
             
 
 
+async def PerfomManualRefresh():
+    async with dataLocker:
+        client.change_presence(game=discord.Game(name="Inspecte le store"), status=status.dnd)
+        #await asyncio.wait(dataLayer.RefreshFromStore())
+        dataLayer.RefreshFromStore()
+        client.change_presence(game=None, status=status.online)
+
+
+
 async def checkNotify():
     
     await client.wait_until_ready()
     while not client.is_closed:
-        logger.debug("Check for notification")        
+        logger.debug("Check for notification")
         
         serverToNotify = dataLayer.GetServerToNotify()
         logger.debug("server to notify: {0}".format(serverToNotify))
@@ -134,44 +143,21 @@ async def checkNotify():
                     if role.id == server.RoleId:
                         channel = client.get_channel(server.ChannelId)
 
-                        if len(newItemsToBuy) > 0:                    
-                            await client.send_message(channel, "Il y a du neuf sur le store {0.mention} !".format(role), embed=discordFrontierStoreEmbed)                        
+                        if len(newItemsToBuy) > 0:
+                            dataLayer.SetServerAsNotified(server.ServerId)
+                            await client.send_message(channel, "Il y a du neuf sur le store {0.mention} !".format(role), embed=discordFrontierStoreEmbed)
                             
-                        dataLayer.SetServerAsNotified(server.ServerId)
                         break
 
         await asyncio.sleep(60)
 
 
 
-#async def refreshData():
-#    await client.wait_until_ready()
-#    while not client.is_closed:
-#        PerformManualRefresh()
-#        await asyncio.sleep(random.randint(2700, 5400)) #45min to 1h30
-
-
-
-#@client.command(pass_context = True)
-#async def register(context):
-#
-#    global allRegisteredServer
-#
-#    if context.message.author.server_permissions.administrator:
-#        for server in allRegisteredServer:
-#            if server.ServerId == context.message.server.id:
-#                return
-#
-#        for role in context.message.server.roles:
-#            if role.name == "Space Pigeon":
-#                logger.info("Server {0.name} add the bot and has a role ""Space Pigeon"", registering it".format(context.message.server))
-#                dataLayer.RegisterDiscordServerRole(context.message.server.id, role.id)
-#                allRegisteredServer = dataLayer.GetAllServer()
-#                return
-#        
-#        client.say("Pas de rôle ""Space Pigeon"" pour ce serveur. Créez-en et tapez .register")
-#    else:
-#        client.say("T'es pas admin, pigeon!")
+async def refreshData():
+    await client.wait_until_ready()
+    while not client.is_closed:
+        await PerfomManualRefresh()
+        await asyncio.sleep(random.randint(21600, 43200)) #6 to 12h
 
 
 
@@ -191,13 +177,14 @@ async def on_message(message):
                 if command == "channel":
                     dataLayer.SetChannelId(message.server.id, message.channel.id)
                     await client.send_message(message.channel, "Ok, {0.author.mention}, je communiquerai les infos dans ce canal".format(message))
+                
                 elif command == "store":
                     dataLayer.SetChannelId(message.server.id, message.channel.id)
                     await client.send_message(message.channel, "Ok, {0.author.mention}, je vais vérifier".format(message))
-                    dataLayer.RefreshFromStore()
-                    #if not dataLayer.WhatNew:
-                    #    await client.send_message(message.channel, "Désolé, rien de nouveau sur le store")
-        
+                    await PerfomManualRefresh()
+                    if not dataLayer.WhatNew:
+                        await client.send_message(message.channel, "Désolé, rien de nouveau sur le store")
+
 
 
 @client.event
@@ -242,5 +229,5 @@ async def on_ready():
     #SanityCheck()
 
 
-client.loop.create_task(checkNotify())
+client.loop.create_task(asyncio.wait(checkNotify(), refreshData()))
 client.run(TOKEN)

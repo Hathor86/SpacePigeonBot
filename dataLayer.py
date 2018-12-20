@@ -93,7 +93,7 @@ class DataLayer():
             cursor.execute("UPDATE RegisteredBot SET hasBeenNotified = 'f'")
             logger.debug("Setting notification")
 
-        connection.commit()        
+        connection.commit()
 
         cursor.close()
         connection.close()
