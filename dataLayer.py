@@ -61,7 +61,7 @@ class DataLayer():
 
     def __init__(self):
 
-        self._connectionString = "dbname=frontierStore user=SpacePigeonBot"
+        self._connectionString = config.connectionString
 
     
     

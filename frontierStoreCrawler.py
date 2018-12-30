@@ -82,6 +82,7 @@ class FrontierStoreCrawler():
 
     def Crawl(self):
 
+        logger.debug("Parsing page 1")
         self.ParseCurrentPage()
 
         numberOfPage = math.ceil(float(self.TotalItemInStore) / 64)
@@ -91,6 +92,7 @@ class FrontierStoreCrawler():
         for i in range(2, numberOfPage + 1):
             soup = BeautifulSoup(urlopen(self.initialPageUrl + "&p=" + str(i)).read(), "html.parser")
             self._currentPage = soup
+            logger.debug("Parsing page {0}".format(i))
             self.ParseCurrentPage()
             sleep(5)
 

@@ -7,13 +7,14 @@ import re
 import config
 from dataLayer import DataLayer
 
-############################
-# Empty config.py sample   #
-#                          #
-# import logging           #
-# TOKEN = ''               #
-# logLevel = logging.DEBUG #
-############################
+##########################################
+# Empty config.py sample                 #
+#                                        #
+# import logging                         #
+# TOKEN = ''                             #
+# logLevel = logging.DEBUG               #
+# logLevel = "dbname=theDb user=theUser" #
+##########################################
 
 TOKEN = config.TOKEN
 
@@ -106,10 +107,9 @@ def SanityCheck():
 
 async def PerfomManualRefresh():
     async with dataLocker:
-        client.change_presence(game=discord.Game(name="Inspecte le store"), status=status.dnd)
-        #await asyncio.wait(dataLayer.RefreshFromStore())
+        await client.change_presence(game=discord.Game(name="Inspecte le store"), status=discord.Status.dnd)
         dataLayer.RefreshFromStore()
-        client.change_presence(game=None, status=status.online)
+        await client.change_presence(game=None, status=discord.Status.online)
 
 
 
@@ -164,26 +164,28 @@ async def refreshData():
 @client.event
 async def on_message(message):
 
-    if message.author.server_permissions.administrator: 
-        if client.user.mentioned_in(message):
+    if message.author != client.user:
+        
+        if message.author.server_permissions.administrator: 
+            if client.user.mentioned_in(message):
 
-            match = re.match(r"^.*\s+!(?P<command>\S*)", message.content)
-            logger.debug(match)
-            logger.debug(message.content)
-            if match:
-                command = match.group("command")
-                
-                #List of command
-                if command == "channel":
-                    dataLayer.SetChannelId(message.server.id, message.channel.id)
-                    await client.send_message(message.channel, "Ok, {0.author.mention}, je communiquerai les infos dans ce canal".format(message))
-                
-                elif command == "store":
-                    dataLayer.SetChannelId(message.server.id, message.channel.id)
-                    await client.send_message(message.channel, "Ok, {0.author.mention}, je vais vérifier".format(message))
-                    await PerfomManualRefresh()
-                    if not dataLayer.WhatNew:
-                        await client.send_message(message.channel, "Désolé, rien de nouveau sur le store")
+                match = re.match(r"^.*\s+!(?P<command>\S*)", message.content)
+                logger.debug(match)
+                logger.debug(message.content)
+                if match:
+                    command = match.group("command")
+                    logger.debug("Command found :{0}".format(command))
+                    
+                    #List of command
+                    if command == "channel":
+                        dataLayer.SetChannelId(message.server.id, message.channel.id)
+                        await client.send_message(message.channel, "Ok, {0.author.mention}, je communiquerai les infos dans ce canal".format(message))
+                    
+                    elif command == "store":
+                        await client.send_message(message.channel, "Ok, {0.author.mention}, je vais vérifier".format(message))
+                        await PerfomManualRefresh()
+                        if not dataLayer.WhatNew():
+                            await client.send_message(message.channel, "Désolé, rien de nouveau sur le store")
 
 
 
@@ -229,5 +231,6 @@ async def on_ready():
     #SanityCheck()
 
 
-client.loop.create_task(asyncio.wait(checkNotify(), refreshData()))
+#client.loop.create_task(refreshData())
+client.loop.create_task(checkNotify())
 client.run(TOKEN)
