@@ -87,7 +87,7 @@ class FrontierStoreCrawler():
 
         numberOfPage = math.ceil(float(self.TotalItemInStore) / 64)
 
-        logger.debug("{0} pages has been calculated".format(numberOfPage))
+        logger.debug("{0} other pages has been calculated".format(numberOfPage))
 
         for i in range(2, numberOfPage + 1):
             soup = BeautifulSoup(urlopen(self.initialPageUrl + "&p=" + str(i)).read(), "html.parser")

@@ -156,7 +156,7 @@ async def checkNotify():
 async def refreshData():
     await client.wait_until_ready()
     while not client.is_closed:
-        await PerfomManualRefresh()
+        PerfomManualRefresh()
         await asyncio.sleep(random.randint(21600, 43200)) #6 to 12h
 
 
@@ -174,16 +174,16 @@ async def on_message(message):
                 logger.debug(message.content)
                 if match:
                     command = match.group("command")
-                    logger.debug("Command found :{0}".format(command))
+                    logger.info("Command found :{0}".format(command))
                     
                     #List of command
                     if command == "channel":
                         dataLayer.SetChannelId(message.server.id, message.channel.id)
-                        await client.send_message(message.channel, "Ok, {0.author.mention}, je communiquerai les infos dans ce canal".format(message))
+                        await client.send_message(message.channel, "Ok {0.author.mention}, je communiquerai les infos dans ce canal".format(message))
                     
                     elif command == "store":
-                        await client.send_message(message.channel, "Ok, {0.author.mention}, je vais vérifier".format(message))
-                        await PerfomManualRefresh()
+                        await client.send_message(message.channel, "Ok {0.author.mention}, je vais vérifier".format(message))
+                        PerfomManualRefresh()
                         if not dataLayer.WhatNew():
                             await client.send_message(message.channel, "Désolé, rien de nouveau sur le store")
 
