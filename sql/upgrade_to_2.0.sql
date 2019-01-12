@@ -1,3 +1,4 @@
+ALTER TABLE CurrentStore ADD COLUMN imageurl character varying(512);
 CREATE OR REPLACE VIEW StoreDiff AS
 SELECT 
     s.id,

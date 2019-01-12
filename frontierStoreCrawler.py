@@ -21,11 +21,12 @@ logger.addHandler(console)
 
 class FrontierStoreObject():
 
-        def __init__(self, id, name, value, url):
+        def __init__(self, id, name, value, url, imageUrl):
             self._id = id
             self._name = name
             self._value = value
             self._url = url
+            self._imageUrl = imageUrl
 
         @property
         def ID(self):
@@ -43,6 +44,10 @@ class FrontierStoreObject():
         def Url(self):
             return self._url
 
+        @property
+        def ImageUrl(self):
+            return self._imageUrl
+
 class FrontierStoreCrawler():
 
     initialPageUrl = "https://www.frontierstore.net/eur/game-extras/elite-dangerous-game-extras.html?limit=64"
@@ -55,7 +60,7 @@ class FrontierStoreCrawler():
 
         p = soup.find("p", "amount")
 
-        logger.debug("{0.get_text} items in store".format(p))
+        logger.debug("{0} items in store".format(p.get_text()))
 
         match = re.match(r"\s*Items \d+-\d+ of (?P<totalItem>\d+)", p.get_text())
         if match:
@@ -72,11 +77,15 @@ class FrontierStoreCrawler():
 
         allProductInPage = self._currentPage.find("div", "category-products")
 
-        for item in allProductInPage.find_all("a", "product-image"):
-            match = re.match(r"^dataPushToAnalytics\('productClick', 'click', {'list':'Product Pages'}, (?P<jsonData>{.*}) , null\)$", item["onclick"])
+        for item in allProductInPage.find_all("div", "item-wrapper"):
+            match = re.match(r"^dataPushToAnalytics\('productClick', 'click', {'list':'Product Pages'}, (?P<jsonData>{.*}) , null\)$", item.a["onclick"])
+            discount = item.find("span", "special-price")
             if match:
                 storeObjectParsed = json.loads(match.group("jsonData").replace("'","\""))
-                self._storeObjects.append(FrontierStoreObject(storeObjectParsed["id"], storeObjectParsed["name"], storeObjectParsed["price"], item["href"]))
+                if discount:
+                    discount = discount.find("span", "price")
+                    storeObjectParsed["price"] = discount.get_text().replace("€", "")
+                self._storeObjects.append(FrontierStoreObject(storeObjectParsed["id"], storeObjectParsed["name"], storeObjectParsed["price"], item.a["href"], item.a.img["src"]))
 
     
 

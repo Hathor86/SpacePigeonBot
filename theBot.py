@@ -17,6 +17,7 @@ from dataLayer import DataLayer
 ##########################################
 
 TOKEN = config.TOKEN
+VERSION = "2.0"
 
 dataLocker = asyncio.Lock()
 
@@ -125,14 +126,6 @@ async def checkNotify():
         if serverToNotify:
 
             newItemsToBuy = dataLayer.WhatNew()
-            discordFrontierStoreEmbed = discord.Embed(title="Frontier Store", url="https://www.frontierstore.net/eur/game-extras/elite-dangerous-game-extras.html")
-
-            for item in newItemsToBuy:
-                if item.DeltaPrice == None:
-                    discordFrontierStoreEmbed.add_field(name = item.Name, value = "A **{0.Value}€** seulement!".format(item), inline = False)
-                else:
-                    discordFrontierStoreEmbed.add_field(name = item.Name, value = "A **{0.Value} €** seulement!\nUne réduction de **{0.DeltaPricePercent:.2f}%** soit une économie de **{0.DeltaPrice}€** ! Rendez-vous compte!".format(item), inline = False)
-
 
             for server in serverToNotify:
 
@@ -145,7 +138,14 @@ async def checkNotify():
 
                         if len(newItemsToBuy) > 0:
                             dataLayer.SetServerAsNotified(server.ServerId)
-                            await client.send_message(channel, "Il y a du neuf sur le store {0.mention} !".format(role), embed=discordFrontierStoreEmbed)
+                            await client.send_message(channel, "Il y a du neuf sur le store {0.mention} !".format(role))
+                            for item in newItemsToBuy:
+                                discordFrontierStoreEmbed = discord.Embed(title = "Frontier Store", url = item.Url)
+                                discordFrontierStoreEmbed.set_thumbnail(url = item.ImageUrl)
+                                if item.DeltaPrice == None:
+                                    discordFrontierStoreEmbed.add_field(name = item.Name, value = "A **{0.Value}€** seulement!".format(item), inline = False)
+                                else:
+                                    discordFrontierStoreEmbed.add_field(name = item.Name, value = "A **{0.Value} €** seulement!\nUne réduction de **{0.DeltaPricePercent:.2f}%** soit une économie de **{0.DeltaPrice}€** ! Rendez-vous compte!".format(item), inline = False)
                             
                         break
 
@@ -186,7 +186,6 @@ async def on_message(message):
                         PerfomManualRefresh()
                         if not dataLayer.WhatNew():
                             await client.send_message(message.channel, "Désolé, rien de nouveau sur le store")
-
 
 
 @client.event

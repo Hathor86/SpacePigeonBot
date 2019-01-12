@@ -17,9 +17,9 @@ logger.addHandler(console)
 
 class NicedFrontierStoreObject(FrontierStoreObject):
 
-        def __init__(self, id, name, price, url, deltaPrice, deltaPricePercent):
+        def __init__(self, id, name, price, url, imageurl, deltaPrice, deltaPricePercent):
             
-            super().__init__(id, name, price, url)
+            super().__init__(id, name, price, url, imageurl)
             self._deltaPrice = deltaPrice
             self._deltaPricePercent = deltaPricePercent
 
@@ -83,7 +83,7 @@ class DataLayer():
 
         for item in storeCrawler.AllItems:
             logger.debug("Inserting {0.Name} into DB".format(item))
-            cursor.execute("INSERT INTO CurrentStore(id, name, price, url) VALUES(%s, %s, %s, %s)", (item.ID, item.Name, item.Value, item.Url))
+            cursor.execute("INSERT INTO CurrentStore(id, name, price, url, imageurl) VALUES(%s, %s, %s, %s, %s)", (item.ID, item.Name, item.Value, item.Url, item.ImageUrl))
 
         logger.debug("Cleaning history")
         cursor.execute("DELETE FROM StoreHistory WHERE isLastRun = 'f' AND historydate > current_timestamp - interval '8 hour'")
@@ -204,9 +204,9 @@ class DataLayer():
 
         diff = []
 
-        cursor.execute("SELECT id, name, price, deltaPrice, deltaPricePercent, url FROM StoreDiff")
+        cursor.execute("SELECT id, name, price, deltaPrice, deltaPricePercent, url, imageurl FROM StoreDiff")
         for record in cursor.fetchall():
-            diff.append(NicedFrontierStoreObject(record[0], record[1], record[2], record[5], record[3], record[4]))
+            diff.append(NicedFrontierStoreObject(record[0], record[1], record[2], record[5], record[6], record[3], record[4]))
 
         cursor.close()
         connection.close()
