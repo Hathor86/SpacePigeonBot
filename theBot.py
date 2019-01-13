@@ -109,7 +109,7 @@ def SanityCheck():
 async def PerfomManualRefresh():
     async with dataLocker:
         await client.change_presence(game=discord.Game(name="Inspecte le store"), status=discord.Status.dnd)
-        dataLayer.RefreshFromStore()
+        await dataLayer.RefreshFromStore()
         await client.change_presence(game=None, status=discord.Status.online)
 
 
@@ -140,12 +140,12 @@ async def checkNotify():
                             dataLayer.SetServerAsNotified(server.ServerId)
                             await client.send_message(channel, "Il y a du neuf sur le store {0.mention} !".format(role))
                             for item in newItemsToBuy:
-                                discordFrontierStoreEmbed = discord.Embed(title = "Frontier Store", url = item.Url)
+                                discordFrontierStoreEmbed = discord.Embed(title = "Je craque !", url = item.Url)
                                 discordFrontierStoreEmbed.set_thumbnail(url = item.ImageUrl)
                                 if item.DeltaPrice == None:
-                                    discordFrontierStoreEmbed.add_field(name = item.Name, value = "A **{0.Value}€** seulement!".format(item), inline = False)
+                                    await client.send_message(channel, "Un superbe **{0.Name}** a **{0.Value}€** seulement!".format(item), embed = discordFrontierStoreEmbed)
                                 else:
-                                    discordFrontierStoreEmbed.add_field(name = item.Name, value = "A **{0.Value} €** seulement!\nUne réduction de **{0.DeltaPricePercent:.2f}%** soit une économie de **{0.DeltaPrice}€** ! Rendez-vous compte!".format(item), inline = False)
+                                    await client.send_message(channel, "Un superbe **{0.Name}** a **{0.Value} €** seulement!\nUne réduction de **{0.DeltaPricePercent:.2f}%** soit une économie de **{0.DeltaPrice}€** ! Rendez-vous compte!".format(item), embed = discordFrontierStoreEmbed)
                             
                         break
 
@@ -156,7 +156,7 @@ async def checkNotify():
 async def refreshData():
     await client.wait_until_ready()
     while not client.is_closed:
-        PerfomManualRefresh()
+        await PerfomManualRefresh()
         await asyncio.sleep(random.randint(21600, 43200)) #6 to 12h
 
 
@@ -183,7 +183,7 @@ async def on_message(message):
                     
                     elif command == "store":
                         await client.send_message(message.channel, "Ok {0.author.mention}, je vais vérifier".format(message))
-                        PerfomManualRefresh()
+                        await PerfomManualRefresh()
                         if not dataLayer.WhatNew():
                             await client.send_message(message.channel, "Désolé, rien de nouveau sur le store")
 
@@ -230,6 +230,6 @@ async def on_ready():
     #SanityCheck()
 
 
-#client.loop.create_task(refreshData())
+client.loop.create_task(refreshData())
 client.loop.create_task(checkNotify())
 client.run(TOKEN)

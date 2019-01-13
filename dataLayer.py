@@ -1,6 +1,7 @@
 import psycopg2
 import logging
 import config
+import asyncio
 from frontierStoreCrawler import FrontierStoreCrawler
 from frontierStoreCrawler import FrontierStoreObject
 
@@ -65,7 +66,7 @@ class DataLayer():
 
     
     
-    def RefreshFromStore(self):
+    async def RefreshFromStore(self):
 
         logger.info("Refreshing from store")
 
@@ -79,7 +80,7 @@ class DataLayer():
         logger.debug("Current store deleted")
 
         storeCrawler = FrontierStoreCrawler()
-        storeCrawler.Crawl()
+        await storeCrawler.Crawl()
 
         for item in storeCrawler.AllItems:
             logger.debug("Inserting {0.Name} into DB".format(item))
@@ -87,13 +88,13 @@ class DataLayer():
 
         logger.debug("Cleaning history")
         cursor.execute("DELETE FROM StoreHistory WHERE isLastRun = 'f' AND historydate > current_timestamp - interval '8 hour'")
+        connection.commit()
 
         logger.debug("Checking if notifications are necessary")
         if self.WhatNew():
             cursor.execute("UPDATE RegisteredBot SET hasBeenNotified = 'f'")
             logger.debug("Setting notification")
-
-        connection.commit()
+            connection.commit()
 
         cursor.close()
         connection.close()

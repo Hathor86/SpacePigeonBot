@@ -3,6 +3,7 @@ import json
 import math
 import logging
 import config
+import asyncio
 from time import sleep
 from html.parser import HTMLParser
 from bs4 import BeautifulSoup
@@ -89,7 +90,7 @@ class FrontierStoreCrawler():
 
     
 
-    def Crawl(self):
+    async def Crawl(self):
 
         logger.debug("Parsing page 1")
         self.ParseCurrentPage()
@@ -103,9 +104,9 @@ class FrontierStoreCrawler():
             self._currentPage = soup
             logger.debug("Parsing page {0}".format(i))
             self.ParseCurrentPage()
-            sleep(5)
+            await asyncio.sleep(5)
 
-                
+
 
     @property
     def TotalItemInStore(self):
