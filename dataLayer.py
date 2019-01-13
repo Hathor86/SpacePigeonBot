@@ -196,7 +196,26 @@ class DataLayer():
         connection.close()
 
 
-    
+
+    def Query(self, item):
+
+        connection = psycopg2.connect(self._connectionString)
+        cursor = connection.cursor()
+
+        items = []
+
+        item = "%" + item.lower().replace(" ", "%") + "%"
+        logger.debug(item)
+        cursor.execute("SELECT id, name, price, url, imageurl FROM CurrentStore WHERE lower(name) like %s", (item,))
+        for record in cursor.fetchall():
+            items.append(FrontierStoreObject(record[0], record[1], record[2], record[3], record[4]))
+        
+        cursor.close()
+        connection.close()
+
+        return items
+
+
 
     def WhatNew(self):
 

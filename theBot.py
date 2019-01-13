@@ -169,7 +169,8 @@ async def on_message(message):
         if message.author.server_permissions.administrator: 
             if client.user.mentioned_in(message):
 
-                match = re.match(r"^.*\s+!(?P<command>\S*)", message.content)
+                #Command regex
+                match = re.match(r"^{0.mention}\s+!(?P<command>\S*)".format(client.user), message.content)
                 logger.debug(match)
                 logger.debug(message.content)
                 if match:
@@ -186,6 +187,29 @@ async def on_message(message):
                         await PerfomManualRefresh()
                         if not dataLayer.WhatNew():
                             await client.send_message(message.channel, "Désolé, rien de nouveau sur le store")
+                
+                #Query regex
+                match = re.match(r"^{0.mention}\s+(?P<query>(?:\w+\s*)+)\s*\?$".format(client.user), message.content)
+                logger.debug(match)
+                logger.debug(message.content)
+                if match:
+                    storeItems = dataLayer.Query(match.group("query"))
+                    if len(storeItems) == 0:
+                        await client.send_message(message.channel, "Hmmm, ça me dit rien ce truc")
+                    elif len(storeItems) < 4:
+                        await client.send_message(message.channel, "J'ai ça en stock:")
+                        for item in storeItems:
+                            discordFrontierStoreEmbed = discord.Embed(title = "Faire péter la VISA", url = item.Url)
+                            discordFrontierStoreEmbed.set_thumbnail(url = item.ImageUrl)
+                            await client.send_message(message.channel, "**{0.Name}** a **{0.Value}€** seulement!".format(item), embed = discordFrontierStoreEmbed)
+                    else:
+                        await client.send_message(message.channel, "J'ai {0} objets en stock. Ca fait beaucoup d'argent à dépenser!\nMais je suis sympa, je ne te montre que les 3 premiers:".format(len(storeItems)))
+                        for i in range(3):
+                            item = storeItems[i]
+                            discordFrontierStoreEmbed = discord.Embed(title = "Faire péter la VISA", url = item.Url)
+                            discordFrontierStoreEmbed.set_thumbnail(url = item.ImageUrl)
+                            await client.send_message(message.channel, "**{0.Name}** a **{0.Value}€** seulement!".format(item), embed = discordFrontierStoreEmbed)
+
 
 
 @client.event
