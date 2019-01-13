@@ -87,7 +87,7 @@ class DataLayer():
             cursor.execute("INSERT INTO CurrentStore(id, name, price, url, imageurl) VALUES(%s, %s, %s, %s, %s)", (item.ID, item.Name, item.Value, item.Url, item.ImageUrl))
 
         logger.debug("Cleaning history")
-        cursor.execute("DELETE FROM StoreHistory WHERE isLastRun = 'f' AND historydate > current_timestamp - interval '8 hour'")
+        cursor.execute("DELETE FROM StoreHistory WHERE isLastRun = 'f' AND historydate < current_timestamp - interval '8 hour'")
         connection.commit()
 
         logger.debug("Checking if notifications are necessary")

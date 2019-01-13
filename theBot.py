@@ -127,27 +127,77 @@ async def checkNotify():
 
             newItemsToBuy = dataLayer.WhatNew()
 
-            for server in serverToNotify:
+            if newItemsToBuy:
+                for server in serverToNotify:
 
-                servertoPing = client.get_server(server.ServerId)
-                logger.debug("server to notify: {0} - id:{1.ServerId}".format(servertoPing, server))
-                for role in servertoPing.roles:
+                    servertoPing = client.get_server(server.ServerId)
+                    logger.debug("server to notify: {0} - id:{1.ServerId}".format(servertoPing, server))
+                    for role in servertoPing.roles:
 
-                    if role.id == server.RoleId:
-                        channel = client.get_channel(server.ChannelId)
+                        if role.id == server.RoleId:
+                            channel = client.get_channel(server.ChannelId)
 
-                        if len(newItemsToBuy) > 0:
-                            dataLayer.SetServerAsNotified(server.ServerId)
-                            await client.send_message(channel, "Il y a du neuf sur le store {0.mention} !".format(role))
-                            for item in newItemsToBuy:
-                                discordFrontierStoreEmbed = discord.Embed(title = "Je craque !", url = item.Url)
-                                discordFrontierStoreEmbed.set_thumbnail(url = item.ImageUrl)
-                                if item.DeltaPrice == None:
-                                    await client.send_message(channel, "Un superbe **{0.Name}** a **{0.Value}€** seulement!".format(item), embed = discordFrontierStoreEmbed)
+                            if len(newItemsToBuy) > 0:
+                                dataLayer.SetServerAsNotified(server.ServerId)
+                                await client.send_message(channel, "Il y a du neuf sur le store {0.mention} !".format(role))
+
+                                if len(newItemsToBuy) < 6:
+                                    for item in newItemsToBuy:
+                                        discordFrontierStoreEmbed = discord.Embed(title = "Je craque !", url = item.Url)
+                                        discordFrontierStoreEmbed.set_thumbnail(url = item.ImageUrl)
+                                        if item.DeltaPrice == None:
+                                            await client.send_message(channel, "Un superbe **{0.Name}** a **{0.Value}€** seulement!".format(item), embed = discordFrontierStoreEmbed)
+                                        else:
+                                            await client.send_message(channel, "Un superbe **{0.Name}** a **{0.Value} €** seulement!\nUne réduction de **{0.DeltaPricePercent:.2f}%** soit une économie de **{0.DeltaPrice}€** ! Rendez-vous compte!".format(item), embed = discordFrontierStoreEmbed)
                                 else:
-                                    await client.send_message(channel, "Un superbe **{0.Name}** a **{0.Value} €** seulement!\nUne réduction de **{0.DeltaPricePercent:.2f}%** soit une économie de **{0.DeltaPrice}€** ! Rendez-vous compte!".format(item), embed = discordFrontierStoreEmbed)
-                            
-                        break
+                                    newItems = 0
+                                    newItemsList = []
+                                    discountedItems = 0
+                                    discountedItemsList = []
+                                    totalDiscount = 0
+                                    for item in newItemsToBuy:
+                                        if item.DeltaPrice == 0:
+                                            newItems += 1
+                                            newItemsList.append(item)
+                                        else:
+                                            discountedItems += 1
+                                            discountedItemsList.append(item)
+                                            totalDiscount += item.DeltaPrice
+                                    
+                                    sentence = ""
+                                    if newItems != 0:
+                                        sentence = newItems + " nouveaux objets"
+                                    if sentence != "" and discountedItems != 0:
+                                        sentence += " et "
+                                    if discountedItems !=0:
+                                        sentence += "{0} objets en réduction (une économie possible de **{1:.2f}€**)".format(discountedItems, totalDiscount)
+                                    sentence += "\nPar souci pour votre portefeuille, j'en ai sélectionné 5."
+
+                                    await client.send_message(channel, sentence)
+                                    await asyncio.sleep(5)
+
+                                    if newItems > 5:
+                                        for item in random.sample(newItemsToBuy, 5):
+                                            discordFrontierStoreEmbed = discord.Embed(title = "Je craque !", url = item.Url)
+                                            discordFrontierStoreEmbed.set_thumbnail(url = item.ImageUrl)
+                                            if item.DeltaPrice == None:
+                                                await client.send_message(channel, "Un superbe **{0.Name}** a **{0.Value}€** seulement!".format(item), embed = discordFrontierStoreEmbed)
+                                            else:
+                                                await client.send_message(channel, "Un superbe **{0.Name}** a **{0.Value} €** seulement!\nUne réduction de **{0.DeltaPricePercent:.2f}%** soit une économie de **{0.DeltaPrice}€** ! Rendez-vous compte!".format(item), embed = discordFrontierStoreEmbed)
+                                    else:
+                                        for item in newItemsList:
+                                            discordFrontierStoreEmbed = discord.Embed(title = "Je craque !", url = item.Url)
+                                            discordFrontierStoreEmbed.set_thumbnail(url = item.ImageUrl)
+                                            await client.send_message(channel, "Un superbe **{0.Name}** a **{0.Value}€** seulement!".format(item), embed = discordFrontierStoreEmbed)
+                                        for item in random.sample(discountedItemsList, 5 - newItems):
+                                            discordFrontierStoreEmbed = discord.Embed(title = "Je craque !", url = item.Url)
+                                            discordFrontierStoreEmbed.set_thumbnail(url = item.ImageUrl)
+                                            if item.DeltaPrice == None:
+                                                await client.send_message(channel, "Un superbe **{0.Name}** a **{0.Value}€** seulement!".format(item), embed = discordFrontierStoreEmbed)
+                                            else:
+                                                await client.send_message(channel, "Un superbe **{0.Name}** a **{0.Value} €** seulement!\nUne réduction de **{0.DeltaPricePercent:.2f}%** soit une économie de **{0.DeltaPrice}€** ! Rendez-vous compte!".format(item), embed = discordFrontierStoreEmbed)
+                                
+                            break
 
         await asyncio.sleep(60)
 
@@ -166,9 +216,9 @@ async def on_message(message):
 
     if message.author != client.user:
         
-        if message.author.server_permissions.administrator: 
-            if client.user.mentioned_in(message):
-
+        if client.user.mentioned_in(message):
+            
+            if message.author.server_permissions.administrator: 
                 #Command regex
                 match = re.match(r"^{0.mention}\s+!(?P<command>\S*)".format(client.user), message.content)
                 logger.debug(match)
@@ -187,28 +237,28 @@ async def on_message(message):
                         await PerfomManualRefresh()
                         if not dataLayer.WhatNew():
                             await client.send_message(message.channel, "Désolé, rien de nouveau sur le store")
-                
-                #Query regex
-                match = re.match(r"^{0.mention}\s+(?P<query>(?:\w+\s*)+)\s*\?$".format(client.user), message.content)
-                logger.debug(match)
-                logger.debug(message.content)
-                if match:
-                    storeItems = dataLayer.Query(match.group("query"))
-                    if len(storeItems) == 0:
-                        await client.send_message(message.channel, "Hmmm, ça me dit rien ce truc")
-                    elif len(storeItems) < 4:
-                        await client.send_message(message.channel, "J'ai ça en stock:")
-                        for item in storeItems:
-                            discordFrontierStoreEmbed = discord.Embed(title = "Faire péter la VISA", url = item.Url)
-                            discordFrontierStoreEmbed.set_thumbnail(url = item.ImageUrl)
-                            await client.send_message(message.channel, "**{0.Name}** a **{0.Value}€** seulement!".format(item), embed = discordFrontierStoreEmbed)
-                    else:
-                        await client.send_message(message.channel, "J'ai {0} objets en stock. Ca fait beaucoup d'argent à dépenser!\nMais je suis sympa, je ne te montre que les 3 premiers:".format(len(storeItems)))
-                        for i in range(3):
-                            item = storeItems[i]
-                            discordFrontierStoreEmbed = discord.Embed(title = "Faire péter la VISA", url = item.Url)
-                            discordFrontierStoreEmbed.set_thumbnail(url = item.ImageUrl)
-                            await client.send_message(message.channel, "**{0.Name}** a **{0.Value}€** seulement!".format(item), embed = discordFrontierStoreEmbed)
+            
+            #Query regex
+            match = re.match(r"^{0.mention}\s+(?P<query>(?:\w+\s*)+)\s*\?$".format(client.user), message.content)
+            logger.debug(match)
+            logger.debug(message.content)
+            if match:
+                storeItems = dataLayer.Query(match.group("query"))
+                if len(storeItems) == 0:
+                    await client.send_message(message.channel, "Hmmm, ça me dit rien ce truc")
+                elif len(storeItems) < 4:
+                    await client.send_message(message.channel, "J'ai ça en stock:")
+                    for item in storeItems:
+                        discordFrontierStoreEmbed = discord.Embed(title = "Faire péter la VISA", url = item.Url)
+                        discordFrontierStoreEmbed.set_thumbnail(url = item.ImageUrl)
+                        await client.send_message(message.channel, "**{0.Name}** a **{0.Value}€** seulement!".format(item), embed = discordFrontierStoreEmbed)
+                else:
+                    await client.send_message(message.channel, "J'ai {0} objets en stock. Ca fait beaucoup d'argent à dépenser!\nMais je suis sympa, je ne te montre que les 3 premiers:".format(len(storeItems)))
+                    for i in range(3):
+                        item = storeItems[i]
+                        discordFrontierStoreEmbed = discord.Embed(title = "Faire péter la VISA", url = item.Url)
+                        discordFrontierStoreEmbed.set_thumbnail(url = item.ImageUrl)
+                        await client.send_message(message.channel, "**{0.Name}** a **{0.Value}€** seulement!".format(item), embed = discordFrontierStoreEmbed)
 
 
 
