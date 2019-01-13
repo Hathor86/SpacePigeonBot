@@ -4,9 +4,9 @@ SELECT
     s.id,
     s.name,
     s.price,
-    (s.price - h.price) AS deltaprice,
+    (h.price - s.price) AS deltaprice,
     CASE
-        WHEN (h.price <> 0) THEN ((s.price - h.price) / h.price) * 100
+        WHEN (h.price <> 0) THEN ((h.price - s.price) / h.price) * 100
         ELSE s.price - h.price
     END AS deltapricepercent,
     s.url,
@@ -16,4 +16,4 @@ FROM
     LEFT JOIN StoreHistory h 
     ON (h.id = s.id AND h.islastrun = true)
 WHERE 
-    h.id IS NULL OR s.price - h.price > 0;
+    h.id IS NULL OR h.price - s.price > 0;
