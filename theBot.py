@@ -203,14 +203,6 @@ async def checkNotify():
 
 
 
-async def refreshData():
-    await client.wait_until_ready()
-    while not client.is_closed:
-        await PerfomManualRefresh()
-        await asyncio.sleep(random.randint(21600, 43200)) #6 to 12h
-
-
-
 @client.event
 async def on_message(message):
 
@@ -231,14 +223,16 @@ async def on_message(message):
                     if command == "channel":
                         dataLayer.SetChannelId(message.server.id, message.channel.id)
                         await client.send_message(message.channel, "Ok {0.author.mention}, je communiquerai les infos dans ce canal".format(message))
+                        return
                     
                     elif command == "store":
                         await client.send_message(message.channel, "Ok {0.author.mention}, je vais vérifier".format(message))
                         await PerfomManualRefresh()
                         if not dataLayer.WhatNew():
                             await client.send_message(message.channel, "Désolé, rien de nouveau sur le store")
+                            return
             
-            #Query regex
+            #Query command/regex
             match = re.match(r"^{0.mention}\s+(?P<query>(?:\w+\s*)+)\s*\?$".format(client.user), message.content)
             logger.debug(match)
             logger.debug(message.content)
@@ -246,12 +240,14 @@ async def on_message(message):
                 storeItems = dataLayer.Query(match.group("query"))
                 if len(storeItems) == 0:
                     await client.send_message(message.channel, "Hmmm, ça me dit rien ce truc")
+                    return
                 elif len(storeItems) < 4:
                     await client.send_message(message.channel, "J'ai ça en stock:")
                     for item in storeItems:
                         discordFrontierStoreEmbed = discord.Embed(title = "Faire péter la VISA", url = item.Url)
                         discordFrontierStoreEmbed.set_thumbnail(url = item.ImageUrl)
                         await client.send_message(message.channel, "**{0.Name}** a **{0.Value}€** seulement!".format(item), embed = discordFrontierStoreEmbed)
+                    return
                 else:
                     await client.send_message(message.channel, "J'ai {0} objets en stock. Ca fait beaucoup d'argent à dépenser!\nMais je suis sympa, je ne te montre que les 3 premiers:".format(len(storeItems)))
                     for i in range(3):
@@ -259,6 +255,54 @@ async def on_message(message):
                         discordFrontierStoreEmbed = discord.Embed(title = "Faire péter la VISA", url = item.Url)
                         discordFrontierStoreEmbed.set_thumbnail(url = item.ImageUrl)
                         await client.send_message(message.channel, "**{0.Name}** a **{0.Value}€** seulement!".format(item), embed = discordFrontierStoreEmbed)
+                    return
+
+        #DSN command
+        match = re.match(r"^!poi\s+(?P<poi1>(?P<number1>\d+)(?P<type1>g|b|h|G|t)\s?)?(?P<poi2>(?P<number2>\d+)(?P<type2>g|b|h|G|t)\s?)?(?P<poi3>(?P<number3>\d+)(?P<type3>g|b|h|G|t)\s?)?(?P<poi4>(?P<number4>\d+)(?P<type4>g|b|h|G|t)\s?)?(?P<poi5>(?P<number5>\d+)(?P<type5>g|b|h|G|t)\s?)$", message.content)
+        logger.debug(match)
+        if match:
+
+            geo = 0
+            bio = 0
+            human = 0
+            guardian = 0
+            thargo = 0
+
+            for i in range(1,6):
+                if match.group("type" + str(i)):
+                    poiType = match.group("type" + str(i))
+                    poiCount = int(match.group("number" + str(i)))
+
+                    logger.debug("POI:{0} - Number:{1}".format(poiType, poiCount))
+
+                    if poiType == "g":
+                        geo += poiCount
+                    elif poiType == "b":
+                        bio += poiCount
+                    elif poiType == "h":
+                        human += poiCount
+                    elif poiType == "G":
+                        guardian += poiCount
+                    elif poiType == "t":
+                        thargo += poiCount
+
+            for i in range(1, geo + 1):
+                messageSent = await client.send_message(message.channel, "Geological {0}".format(i))
+                await client.add_reaction(messageSent, "▶")
+            for i in range(1, bio + 1):
+                messageSent = await client.send_message(message.channel, "Biological {0}".format(i))
+                await client.add_reaction(messageSent, "▶")
+            for i in range(1, human + 1):
+                messageSent = await client.send_message(message.channel, "Human {0}".format(i))
+                await client.add_reaction(messageSent, "▶")
+            for i in range(1, guardian + 1):
+                messageSent = await client.send_message(message.channel, "Guardian {0}".format(i))
+                await client.add_reaction(messageSent, "▶")
+            for i in range(1, thargo + 1):
+                messageSent = await client.send_message(message.channel, "Thargoid {0}".format(i))
+                await client.add_reaction(messageSent, "▶")
+
+            return
 
 
 
@@ -304,6 +348,6 @@ async def on_ready():
     #SanityCheck()
 
 
-client.loop.create_task(refreshData())
+
 client.loop.create_task(checkNotify())
 client.run(TOKEN)
