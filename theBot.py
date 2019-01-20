@@ -14,10 +14,13 @@ from dataLayer import DataLayer
 # TOKEN = ''                             #
 # logLevel = logging.DEBUG               #
 # logLevel = "dbname=theDb user=theUser" #
+# refreshTick = 240                      #
 ##########################################
 
 TOKEN = config.TOKEN
-VERSION = "2.0"
+VERSION = "2.1"
+REFRESH = config.refreshTick
+CURRENTTICK = 0
 
 dataLocker = asyncio.Lock()
 
@@ -199,6 +202,12 @@ async def checkNotify():
                                 
                             break
 
+        global CURRENTTICK
+        CURRENTTICK += 1
+        if CURRENTTICK > REFRESH:
+            CURRENTTICK = 0
+            await PerfomManualRefresh()
+        
         await asyncio.sleep(60)
 
 
@@ -211,7 +220,7 @@ async def on_message(message):
         if client.user.mentioned_in(message):
             
             if message.author.server_permissions.administrator: 
-                #Command regex
+                #Admin Command regex
                 match = re.match(r"^{0.mention}\s+!(?P<command>\S*)".format(client.user), message.content)
                 logger.debug(match)
                 logger.debug(message.content)
@@ -315,19 +324,6 @@ async def on_server_join(server):
                 roleOk = True
                 logger.info("Server {0.name} add the bot and has a role ""Space Pigeon"", registering it".format(server))
                 dataLayer.RegisterDiscordServerRole(server.id, role.id)
-
-    if not roleOk:
-        for chan in server.channels:
-            if chan.type == discord.ChannelType.text:
-                await client.send_message(chan, "Pas de rôle ""Space Pigeon"" pour ce serveur. Créez-en un et tapez .register")
-                logger.warn("No ""Space Pigeon"" role for server {0.name}".format(server))
-                break
-
-    for channel in server.channels:
-        if channel.type  == discord.ChannelType.text:
-            dataLayer.SetChannelId(server.id, channel.id)
-            await client.send_message(channel, "Je communiquerai dans ce canal, mentionnez-moi en indiquant ""par ici"" dans un autre canal pour changer")
-            break
 
 
 
