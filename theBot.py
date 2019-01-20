@@ -1,6 +1,8 @@
 #! /usr/bin/python3.6 -u
 import discord
 import logging
+from logging.handlers import WatchedFileHandler
+from os import path
 import asyncio
 import random
 import re
@@ -18,7 +20,7 @@ from dataLayer import DataLayer
 ##########################################
 
 TOKEN = config.TOKEN
-VERSION = "2.1"
+VERSION = "2.2"
 REFRESH = config.refreshTick
 CURRENTTICK = 0
 
@@ -29,11 +31,17 @@ logger.setLevel(config.logLevel)
 
 formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
 
-#consolehandler
+#console handler
 console = logging.StreamHandler()
 console.setLevel(config.logLevel)
 console.setFormatter(formatter)
 logger.addHandler(console)
+
+#logfile handler
+logfile = WatchedFileHandler(path.join(config.logPath, config.logFileName))
+logfile.setLevel(config.logLevel)
+logfile.setFormatter(formatter)
+logger.addHandler(logfile)
 
 client = discord.Client()
 dataLayer = DataLayer()
