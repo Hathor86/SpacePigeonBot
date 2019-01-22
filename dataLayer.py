@@ -16,6 +16,12 @@ console.setLevel(config.logLevel)
 console.setFormatter(formatter)
 logger.addHandler(console)
 
+#logfile handler
+logfile = WatchedFileHandler(path.join(config.logPath, config.logFileName))
+logfile.setLevel(config.logLevel)
+logfile.setFormatter(formatter)
+logger.addHandler(logfile)
+
 class NicedFrontierStoreObject(FrontierStoreObject):
 
         def __init__(self, id, name, price, url, imageurl, deltaPrice, deltaPricePercent):

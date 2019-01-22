@@ -17,10 +17,12 @@ from dataLayer import DataLayer
 # logLevel = logging.DEBUG               #
 # logLevel = "dbname=theDb user=theUser" #
 # refreshTick = 240                      #
+# logPath = ""                           #
+# logFileName = "spacepigeon.log"        #
 ##########################################
 
 TOKEN = config.TOKEN
-VERSION = "2.2"
+VERSION = "3.0"
 REFRESH = config.refreshTick
 CURRENTTICK = 0
 
