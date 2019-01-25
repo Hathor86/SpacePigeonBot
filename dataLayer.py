@@ -4,6 +4,8 @@ import config
 import asyncio
 from frontierStoreCrawler import FrontierStoreCrawler
 from frontierStoreCrawler import FrontierStoreObject
+from logging.handlers import WatchedFileHandler
+from os import path
 
 logger = logging.getLogger(__name__)
 logger.setLevel(config.logLevel)

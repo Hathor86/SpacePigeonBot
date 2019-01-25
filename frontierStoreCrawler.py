@@ -8,6 +8,8 @@ from time import sleep
 from html.parser import HTMLParser
 from bs4 import BeautifulSoup
 from urllib.request import urlopen
+from logging.handlers import WatchedFileHandler
+from os import path
 
 logger = logging.getLogger(__name__)
 logger.setLevel(config.logLevel)

@@ -169,7 +169,7 @@ async def checkNotify():
                                     discountedItemsList = []
                                     totalDiscount = 0
                                     for item in newItemsToBuy:
-                                        if item.DeltaPrice == 0:
+                                        if not item.DeltaPrice:
                                             newItems += 1
                                             newItemsList.append(item)
                                         else:
@@ -179,7 +179,7 @@ async def checkNotify():
                                     
                                     sentence = ""
                                     if newItems != 0:
-                                        sentence = newItems + " nouveaux objets"
+                                        sentence = str(newItems) + " nouveaux objets"
                                     if sentence != "" and discountedItems != 0:
                                         sentence += " et "
                                     if discountedItems !=0:
@@ -350,6 +350,9 @@ async def on_ready():
 
     logger.info("Logged in as {0.user.name}".format(client))
     logger.debug("Client id is {0.user.id}".format(client))
+
+    for server in client.servers:
+        print("server: {0.name} - id: {0.id}".format(server))
 
     #SanityCheck()
 
