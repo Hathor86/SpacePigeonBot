@@ -140,13 +140,28 @@ class DataLayer():
         connection.close()
 
 
-    def SetChannelId(self, serverId, channelId, channelName):
+    def SetPigeonChannel(self, serverId, channelId, channelName):
 
         connection = psycopg2.connect(self._connectionString)
         cursor = connection.cursor()
 
         cursor.execute("UPDATE SpacePigeon_Parameter SET Notification_Channel_Id = %s, Notification_Channel_Name = %s WHERE serverId = %s", (channelId, channelName, serverId))
-        logger.debug("Server id {0} set its channel to {1}".format(serverId, channelName))
+        logger.debug("Server id {0} set its pigeon channel to {1}".format(serverId, channelName))
+
+        connection.commit()
+
+        cursor.close()
+        connection.close()
+
+
+
+    def SetPigeonRole(self, serverId, roleId, roleName):
+
+        connection = psycopg2.connect(self._connectionString)
+        cursor = connection.cursor()
+
+        cursor.execute("UPDATE SpacePigeon_Parameter SET Notification_Role_Id = %s, Notification_Role_Name = %s WHERE serverId = %s", (roleId, roleName, serverId))
+        logger.debug("Server id {0} set its pigeon role to {1}".format(serverId, roleName))
 
         connection.commit()
 

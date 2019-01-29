@@ -53,74 +53,6 @@ allRegisteredServer = []
 
 
 
-def SanityCheck():
-
-    logger.info("Performing sanity check")
-
-    currentRegistered = []
-    currentRegisteredRole = []
-    allServerId = []
-    global allRegisteredServer
-
-    allRegisteredServer = dataLayer.GetAllServer()
-
-    for server in allRegisteredServer:
-        currentRegistered.append(server.ServerId)
-        currentRegisteredRole.append(server.RoleId)
-
-    logger.debug("Checking server where bot is present")
-
-    for server in client.servers:
-
-        logger.debug("Checking {0.name}".format(server))
-
-        allServerId.append(server.id)
-        isListOk = False
-        for serverId in currentRegistered:
-            if serverId == server.id:
-                isListOk = True
-
-        if not isListOk:
-
-            logger.info("Server {0.name} not registered, trying registering it".format(server))
-
-            for role in server.roles:
-
-                roleOk = False
-                if role.name == "Space Pigeon":
-
-                    logger.debug("Server {0.name} has a role named ""Space Pigeon"", registering it".format(server))
-
-                    dataLayer.RegisterDiscordServerRole(server.id, role.id)
-                    roleOk = True
-                
-                if not roleOk:
-                    client.send_message(server.default_channel, "Pas de rôle ""Space Pigeon"" pour ce serveur. Créez-en et tapez .register")
-                    logger.warn("No ""Space Pigeon"" role for server {0.name}".format(server))
-        
-        #TODO : Perfom role & channel check
-           
-
-    
-    logger.info("Checking registered server in DB")
-    logger.debug("Registered id: {0}".format(currentRegistered))
-
-    for serverid in currentRegistered:
-
-        isListOk = False
-        for serverid2 in allServerId:
-            if serverid2 == serverId:
-                isListOk = True
-        
-        if not isListOk:
-            logger.info("Server {0} doesn't use the bot anymore, removing it".format(str(serverid)))
-            dataLayer.UnregisterDiscordServerRole(serverid)
-    
-    allRegisteredServer = dataLayer.GetAllServer()
-    logger.info("Sanity check finished")
-            
-
-
 async def PerfomManualRefresh():
     async with dataLocker:
         await client.change_presence(game=discord.Game(name="Inspecte le store"), status=discord.Status.dnd)
@@ -239,13 +171,19 @@ async def on_message(message):
                 logger.debug(message.content)
                 if match:
                     command = match.group("command")
-                    logger.info("Command found :{0}".format(command))
+                    logger.info("Admin command found :{0}".format(command))
                     
                     #List of command
-                    if command == "channel":
-                        dataLayer.SetChannelId(message.server.id, message.channel.id)
+                    if command == "pigeon channel":
+                        dataLayer.SetPigeonChannel(message.server.id, message.channel.id, message.channel.name)
                         await client.send_message(message.channel, "Ok {0.author.mention}, je communiquerai les infos dans ce canal".format(message))
                         return
+
+                    elif command == "pigeon role":
+                        if message.role_mentions:
+                            dataLayer.SetPigeonRole(message.server.id, message.role_mentions[0].id, message.role_mentions[0].name)
+                            await client.send_message(message.channel, "Ok {0.author.mention}, le rôle {1.name} sera pingé".format(message, message.role_mentions[0]))
+                            return
                     
                     elif command == "store":
                         await client.send_message(message.channel, "Ok {0.author.mention}, je vais vérifier".format(message))
@@ -253,6 +191,18 @@ async def on_message(message):
                         if not dataLayer.WhatNew():
                             await client.send_message(message.channel, "Désolé, rien de nouveau sur le store")
                             return
+                    
+                    elif command == "contest":
+                        if "-contest" in message.channel.name:
+                            nomee = []
+                            count = []
+                            image = []
+                            async for msg in client.logs_from(message.channel, limit = 100):
+                                nomee.append(msg.author)
+                                count.append(msg.reactions[0].count)
+                                nomee.append(msg.attachments)
+
+                        return
             
             #Query command/regex
             match = re.match(r"^{0.mention}\s+(?P<query>(?:\w+\s*)+)\s*\?$".format(client.user), message.content)
@@ -351,7 +301,7 @@ async def on_ready():
     for server in client.servers:
         print("server: {0.name} - id: {0.id}".format(server))
         
-        #SanityCheck()
+        #Run once
         logger.info("Upgrading to 3.0")
         connection = psycopg2.connect(dataLayer._connectionString)
         cursor = connection.cursor()
