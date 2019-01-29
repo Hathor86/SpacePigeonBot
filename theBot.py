@@ -187,6 +187,7 @@ async def checkNotify():
                                     sentence += "\nPar souci pour votre portefeuille, j'en ai sélectionné 5."
 
                                     await client.send_message(channel, sentence)
+                                    await client.send_typing(channel)
                                     await asyncio.sleep(5)
 
                                     if newItems > 5:
@@ -327,21 +328,15 @@ async def on_message(message):
 
 @client.event
 async def on_server_join(server):
-
-    roleOk = False
-    for role in server.roles:
-            if role.name == "Space Pigeon":
-                roleOk = True
-                logger.info("Server {0.name} add the bot and has a role ""Space Pigeon"", registering it".format(server))
-                dataLayer.RegisterDiscordServerRole(server.id, role.id)
+    logger.info("Server {0.name} add the bot, registering it".format(server))
+    dataLayer.RegisterDiscordServer(server.id, server.name)
 
 
 
 @client.event
 async def on_server_remove(server):
-
     logger.info("Server {0.name} removed the bot, unregistering it".format(server))
-    dataLayer.UnregisterDiscordServerRole(server.id)
+    dataLayer.UnregisterDiscordServer(server.id, server.name)
 
 
 

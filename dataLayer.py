@@ -100,7 +100,7 @@ class DataLayer():
 
         logger.debug("Checking if notifications are necessary")
         if self.WhatNew():
-            cursor.execute("UPDATE RegisteredBot SET hasBeenNotified = 'f'")
+            cursor.execute("UPDATE SpacePigeon_Parameter SET Notification_Done = false")
             logger.debug("Setting notification")
             connection.commit()
 
@@ -111,13 +111,13 @@ class DataLayer():
 
 
 
-    def RegisterDiscordServerRole(self, serverId, roleId):
+    def RegisterDiscordServer(self, serverId, serverName):
 
         connection = psycopg2.connect(self._connectionString)
         cursor = connection.cursor()
 
-        cursor.execute("INSERT INTO RegisteredBot(serverId, RoleId, channelId) VALUES(%s, %s, '')", (serverId, roleId))
-        logger.info("Registering new server with ID " + serverId)
+        cursor.execute("INSERT INTO RegisteredBot(ServerId, ServerName) VALUES(%s, %s)", (serverId, serverName))
+        logger.info("Server {0} (id: {1}) sucessfully registered".format(serverName, serverId))
 
         connection.commit()
 
@@ -126,13 +126,13 @@ class DataLayer():
 
 
 
-    def UnregisterDiscordServerRole(self, serverId):
+    def UnregisterDiscordServer(self, serverId, serverName):
 
         connection = psycopg2.connect(self._connectionString)
         cursor = connection.cursor()
 
-        cursor.execute("DELETE FROM RegeristedBot WHERE serverId = %s", (serverId))
-        logger.info("Removing server with ID " + serverId)
+        cursor.execute("DELETE FROM RegisteredServer WHERE serverId = %s", (serverId))
+        logger.info("Server {0} (id: {1}) sucessfully removed".format(serverName, serverId))
 
         connection.commit()
 
@@ -140,13 +140,13 @@ class DataLayer():
         connection.close()
 
 
-    def SetChannelId(self, serverId, channelId):
+    def SetChannelId(self, serverId, channelId, channelName):
 
         connection = psycopg2.connect(self._connectionString)
         cursor = connection.cursor()
 
-        cursor.execute("UPDATE RegisteredBot SET channelId = %s WHERE serverId = %s", (channelId, serverId))
-        logger.debug("Server id {0} set its channel to {1}".format(serverId, channelId))
+        cursor.execute("UPDATE SpacePigeon_Parameter SET Notification_Channel_Id = %s, Notification_Channel_Name = %s WHERE serverId = %s", (channelId, channelName, serverId))
+        logger.debug("Server id {0} set its channel to {1}".format(serverId, channelName))
 
         connection.commit()
 
@@ -162,7 +162,7 @@ class DataLayer():
 
         servers = []
 
-        cursor.execute("SELECT serverid, roleid, channelid FROM RegisteredBot")
+        cursor.execute("SELECT serverid, Notification_Role_Id, Notification_Channel_Id FROM SpacePigeon_Parameter")
         for record in cursor.fetchall():
             servers.append(DiscordServer(record[0], record[1], record[2]))
 
@@ -179,7 +179,7 @@ class DataLayer():
 
         servers = []
 
-        cursor.execute("SELECT serverid, roleid, channelid FROM RegisteredBot WHERE hasBeenNotified = 'f'")
+        cursor.execute("SELECT ServerId, Notification_Role_Id, Notification_Channel_Id FROM RegisteredBot WHERE Notification_Done = false")
         for record in cursor.fetchall():
             servers.append(DiscordServer(record[0], record[1], record[2]))
 
@@ -195,7 +195,7 @@ class DataLayer():
         connection = psycopg2.connect(self._connectionString)
         cursor = connection.cursor()
 
-        cursor.execute("UPDATE RegisteredBot SET hasBeenNotified = 't' WHERE serverid = '" + serverId + "'")
+        cursor.execute("UPDATE SpacePigeon_Parameter SET Notification_Done = 't' WHERE ServerId = '" + serverId + "'")
         logger.debug("Server with ID {0} has been notified".format(serverId))
 
         connection.commit()
