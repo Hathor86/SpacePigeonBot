@@ -194,7 +194,7 @@ class DataLayer():
 
         servers = []
 
-        cursor.execute("SELECT ServerId, Notification_Role_Id, Notification_Channel_Id FROM RegisteredBot WHERE Notification_Done = false")
+        cursor.execute("SELECT ServerId, Notification_Role_Id, Notification_Channel_Id FROM SpacePigeon_Parameter WHERE Notification_Done = false")
         for record in cursor.fetchall():
             servers.append(DiscordServer(record[0], record[1], record[2]))
 

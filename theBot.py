@@ -8,6 +8,7 @@ import random
 import re
 import config
 from dataLayer import DataLayer
+from contestEntrant import ContestEntrant
 #temporary added for migration
 import psycopg2
 
@@ -174,12 +175,12 @@ async def on_message(message):
                     logger.info("Admin command found :{0}".format(command))
                     
                     #List of command
-                    if command == "pigeon channel":
+                    if command == "pigeon_channel":
                         dataLayer.SetPigeonChannel(message.server.id, message.channel.id, message.channel.name)
                         await client.send_message(message.channel, "Ok {0.author.mention}, je communiquerai les infos dans ce canal".format(message))
                         return
 
-                    elif command == "pigeon role":
+                    elif command == "pigeon_role":
                         if message.role_mentions:
                             dataLayer.SetPigeonRole(message.server.id, message.role_mentions[0].id, message.role_mentions[0].name)
                             await client.send_message(message.channel, "Ok {0.author.mention}, le rôle {1.name} sera pingé".format(message, message.role_mentions[0]))
@@ -194,13 +195,17 @@ async def on_message(message):
                     
                     elif command == "contest":
                         if "-contest" in message.channel.name:
-                            nomee = []
-                            count = []
-                            image = []
+                            entrants = []
                             async for msg in client.logs_from(message.channel, limit = 100):
-                                nomee.append(msg.author)
-                                count.append(msg.reactions[0].count)
-                                nomee.append(msg.attachments)
+                                if msg.reactions:
+                                    entrants.append(ContestEntrant(msg.author, msg.reactions[0].count, msg.attachments[0]["url"]))
+                                    logger.debug("{0.author} : {0.reactions[0].count} vote(s)".format(msg))
+                            
+                            entrants.sort(key = lambda ent: ent.VoteCount, reverse = True)
+                            currentVote = 0
+                            winnerCount = 0
+                            #for winner in entrants:
+
 
                         return
             
@@ -306,23 +311,23 @@ async def on_ready():
         connection = psycopg2.connect(dataLayer._connectionString)
         cursor = connection.cursor()
 
-        cursor.execute("SELECT serverid FROM RegisteredServer WHERE serverid = %s", (server.id))
+        cursor.execute("SELECT serverid FROM RegisteredServer WHERE serverid = %s", (server.id,))
         registeredServer = cursor.fetchall()
         if registeredServer:
             cursor.execute("UPDATE RegisteredServer SET ServerName = %s WHERE ServerId = %s", (server.name, server.id))
         else:
             cursor.execute("INSERT INTO RegisteredServer VALUES (%s, %s)", (server.name, server.id))
 
-        cursor.execute("SELECT Notification_Role_Id, Notification_Channel_Id FROM SpacePigeon_Parameter WHERE serverid = %s", (server.id))
+        cursor.execute("SELECT Notification_Role_Id, Notification_Channel_Id FROM SpacePigeon_Parameter WHERE serverid = %s", (server.id,))
         registeredServer = cursor.fetchall()
         if registeredServer:
             for record in registeredServer:
                 for role in server.roles:
                     if role.id == record[0]:
-                        cursor.execute("UPDATE SpacePigeon_Parameter SET Notification_Role_Name = %s, Notification_Channel_Name = %s WHERE ServerId = %s", (role.name, client.get_channel(record[1]), server.id))
+                        cursor.execute("UPDATE SpacePigeon_Parameter SET Notification_Role_Name = %s, Notification_Channel_Name = %s WHERE ServerId = %s", (role.name, client.get_channel(record[1]).name, server.id))
                         break
 
-        connection.rollback()
+        connection.commit()
         logger.info("Upgrade complete")
         cursor.close()
         connection.close()
