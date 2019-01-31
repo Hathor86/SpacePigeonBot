@@ -167,12 +167,13 @@ async def on_message(message):
             
             if message.author.server_permissions.administrator: 
                 #Admin Command regex
-                match = re.match(r"^{0.mention}\s+!(?P<command>\S*)".format(client.user), message.content)
+                match = re.match(r"^{0.mention}\s+!(?P<command>\S*)\s+(?P<parameters>.*)$".format(client.user), message.content)
                 logger.debug(match)
                 logger.debug(message.content)
                 if match:
                     command = match.group("command")
                     logger.info("Admin command found :{0}".format(command))
+                    logger.info("Parameters :{0}".format(match.group("parameters")))
                     
                     #List of command
                     if command == "pigeon_channel":
@@ -191,22 +192,53 @@ async def on_message(message):
                         await PerfomManualRefresh()
                         if not dataLayer.WhatNew():
                             await client.send_message(message.channel, "Désolé, rien de nouveau sur le store")
-                            return
+                        return
                     
                     elif command == "contest":
                         if "-contest" in message.channel.name:
-                            entrants = []
-                            async for msg in client.logs_from(message.channel, limit = 100):
-                                if msg.reactions:
-                                    entrants.append(ContestEntrant(msg.author, msg.reactions[0].count, msg.attachments[0]["url"]))
-                                    logger.debug("{0.author} : {0.reactions[0].count} vote(s)".format(msg))
                             
-                            entrants.sort(key = lambda ent: ent.VoteCount, reverse = True)
-                            currentVote = 0
-                            winnerCount = 0
-                            #for winner in entrants:
+                            parameters = match.group("parameters").split(" ")
 
+                            if parameters and parameters[0] == "prepare":
+                                async for msg in client.logs_from(message.channel, limit = 100):
+                                    if msg.attachments:
+                                        client.add_reaction(msg, "❤")
+                                return
 
+                            if parameters and parameters[0] == "winners":
+                                
+                                if parameters[1]:
+                                    numberOfWinner = parameters[1]
+                                else:
+                                    numberOfWinner = 3
+                                
+                                entrants = []
+                                async for msg in client.logs_from(message.channel, limit = 100):
+                                    if msg.reactions:
+                                        entrants.append(ContestEntrant(msg.author, msg.reactions[0].count, msg.attachments[0]["url"]))
+                                        logger.debug("{0.author} : {0.reactions[0].count} vote(s)".format(msg))
+
+                                entrants.sort(key = lambda ent: ent.VoteCount, reverse = True)
+
+                                discordContestEmbed = discord.Embed(title = "Gagnants du concours")
+                                currentVote = 0
+                                winnerCount = 1
+
+                                for winner in entrants:
+
+                                    if winnerCount == 1:
+                                        discordContestEmbed.add_field(name = "1er", value = "")
+                                    else:
+                                        discordContestEmbed.add_field(name = "{0}ème".format(winnerCount), value = "", inline = False)
+                                
+                                    discordContestEmbed.fields[-1].value = "{0.mention} avec **{1}** votes".format(winner.Author, winner.VoteCount)
+
+                                    winnerCount += 1
+                                    if winnerCount > numberOfWinner:
+                                        break
+                                discordContestEmbed.set_footer(test = "Bravo à eux !")
+
+                                await client.send_message(message.channel, "Les gagnants du concours sont", embed = discordContestEmbed)
                         return
             
             #Query command/regex
