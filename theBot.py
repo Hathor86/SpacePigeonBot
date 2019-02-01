@@ -236,7 +236,7 @@ async def on_message(message):
                                     winnerCount += 1
                                     if winnerCount > numberOfWinner:
                                         break
-                                discordContestEmbed.set_footer(test = "Bravo à eux !")
+                                discordContestEmbed.set_footer(text = "Bravo à eux !")
 
                                 await client.send_message(message.channel, "Les gagnants du concours sont", embed = discordContestEmbed)
                         return
