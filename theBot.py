@@ -194,52 +194,60 @@ async def on_message(message):
                             await client.send_message(message.channel, "Désolé, rien de nouveau sur le store")
                         return
                     
-                    elif command == "contest":
-                        if "-contest" in message.channel.name:
+                    elif command == "contest" and "-contest" in message.channel.name:
                             
-                            parameters = match.group("parameters").split(" ")
+                        parameters = match.group("parameters").split(" ")
 
-                            if parameters and parameters[0] == "prepare":
-                                async for msg in client.logs_from(message.channel, limit = 100):
-                                    if msg.attachments:
-                                        client.add_reaction(msg, "❤")
-                                return
+                        entrantCount = 0
+                        if parameters and parameters[0] == "prepare":
+                            async for msg in client.logs_from(message.channel, limit = 100):
+                                if msg.attachments:
+                                    await client.add_reaction(msg, "♥")
+                                    entrantCount += 1
+                            
+                            sentence = "La phase de soumission est terminée pour ce xeme #nom.\n"
+                            sentence += "Vous avez jusqu'à **Dimanche 20:00 pour voter**, en ajoutant une réaction ♥ aux images que préférez parmi les {0} proposées.".format(entrantCount)
+                            await client.send_message(message.channel, sentence)
+                            return
 
-                            if parameters and parameters[0] == "winners":
-                                
-                                if parameters[1]:
-                                    numberOfWinner = parameters[1]
-                                else:
+                        if parameters and parameters[0] == "winners":
+                            
+                            if len(parameters) > 1:
+                                try:
+                                    numberOfWinner = int(parameters[1])
+                                except:
                                     numberOfWinner = 3
+                            else:
+                                numberOfWinner = 3
+                            
+                            entrants = []
+                            async for msg in client.logs_from(message.channel, limit = 100):
+                                if msg.reactions:
+                                    entrants.append(ContestEntrant(msg.author, msg.reactions[0].count, msg.attachments[0]["url"]))
+                                    logger.debug("{0.author} : {0.reactions[0].count} vote(s)".format(msg))
+
+                            entrants.sort(key = lambda ent: ent.VoteCount, reverse = True)
+
+                            discordContestEmbed = discord.Embed(title = "Gagnants du concours")
+                            currentVote = 0
+                            winnerCount = 1
+
+                            for winner in entrants:
+
+                                currentValue = "{0.mention} avec **{1}** votes".format(winner.Author, winner.VoteCount)
+                                if winnerCount == 1:
+                                    discordContestEmbed.add_field(name = "1er", value = currentValue, inline = False)
+                                else:
+                                    discordContestEmbed.add_field(name = "{0}ème".format(winnerCount), value = currentValue, inline = False)
                                 
-                                entrants = []
-                                async for msg in client.logs_from(message.channel, limit = 100):
-                                    if msg.reactions:
-                                        entrants.append(ContestEntrant(msg.author, msg.reactions[0].count, msg.attachments[0]["url"]))
-                                        logger.debug("{0.author} : {0.reactions[0].count} vote(s)".format(msg))
+                                winnerCount += 1
+                                if winnerCount > numberOfWinner:
+                                    break
 
-                                entrants.sort(key = lambda ent: ent.VoteCount, reverse = True)
 
-                                discordContestEmbed = discord.Embed(title = "Gagnants du concours")
-                                currentVote = 0
-                                winnerCount = 1
-
-                                for winner in entrants:
-
-                                    if winnerCount == 1:
-                                        discordContestEmbed.add_field(name = "1er", value = "")
-                                    else:
-                                        discordContestEmbed.add_field(name = "{0}ème".format(winnerCount), value = "", inline = False)
-                                
-                                    discordContestEmbed.fields[-1].value = "{0.mention} avec **{1}** votes".format(winner.Author, winner.VoteCount)
-
-                                    winnerCount += 1
-                                    if winnerCount > numberOfWinner:
-                                        break
-                                discordContestEmbed.set_footer(text = "Bravo à eux !")
-
-                                await client.send_message(message.channel, "Les gagnants du concours sont", embed = discordContestEmbed)
-                        return
+                            await client.send_message(message.channel, "Les gagnants du concours sont", embed = discordContestEmbed)
+                            await client.send_message(message.channel, "**Bravo à eux**")
+                    return
             
             #Query command/regex
             match = re.match(r"^{0.mention}\s+(?P<query>(?:\w+\s*)+)\s*\?$".format(client.user), message.content)
