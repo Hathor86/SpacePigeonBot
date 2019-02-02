@@ -3,9 +3,11 @@ import discord
 import logging
 from logging.handlers import WatchedFileHandler
 from os import path
+from os import remove
 import asyncio
 import random
 import re
+import urllib
 import config
 from dataLayer import DataLayer
 from contestEntrant import ContestEntrant
@@ -228,25 +230,32 @@ async def on_message(message):
 
                             entrants.sort(key = lambda ent: ent.VoteCount, reverse = True)
 
-                            discordContestEmbed = discord.Embed(title = "Gagnants du concours")
                             currentVote = 0
                             winnerCount = 1
 
+                            await client.send_message(message.channel, "Les gagnants du concours sont")
+
                             for winner in entrants:
 
-                                currentValue = "{0.mention} avec **{1}** votes".format(winner.Author, winner.VoteCount)
+                                currentWinnerString = "{0.mention} avec **{1}** votes".format(winner.Author, winner.VoteCount)
                                 if winnerCount == 1:
-                                    discordContestEmbed.add_field(name = "1er", value = currentValue, inline = False)
+                                    await client.send_message(message.channel, "1er\n" + currentWinnerString)
                                 else:
-                                    discordContestEmbed.add_field(name = "{0}ème".format(winnerCount), value = currentValue, inline = False)
+                                    await client.send_message(message.channel, "{0}ème\n{1}".format(winnerCount, currentWinnerString))
                                 
+                                await client.send_typing(message.channel)
+                                request = urllib.request.Request(winner.ImageUrl, data = None, headers = {"User-Agent": "Mozilla/5.0 (Windows NT 6.1; Win64; x64)"})
+                                filePath = "{0.Author.name}_{1}_{2}{3}".format(winner, "x", "contest", winner.ImageUrl[winner.ImageUrl.rfind("."):])
+                                with urllib.request.urlopen(request) as image, open(filePath, "wb") as localImgFile:
+                                    localImgFile.write(image.read())
+                                await client.send_file(message.channel, filePath)
+                                remove(filePath)
+
                                 winnerCount += 1
                                 if winnerCount > numberOfWinner:
                                     break
 
-
-                            await client.send_message(message.channel, "Les gagnants du concours sont", embed = discordContestEmbed)
-                            await client.send_message(message.channel, "**Bravo à eux**")
+                            await client.send_message(message.channel, "**Bravo à eux !**")
                     return
             
             #Query command/regex
