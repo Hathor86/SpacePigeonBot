@@ -68,10 +68,11 @@ class DiscordServer():
 
 class Contest():
 
-    def __init__(self, contestName, notificationRole, contestCount):
+    def __init__(self, contestName, notificationRole, winnerChannel, contestCount):
 
         self._contestName = contestName
         self._notificationRole = notificationRole
+        self._winnerChannel = winnerChannel
         self._contestCount = contestCount
 
 
@@ -83,6 +84,10 @@ class Contest():
     @property
     def NotificationRole(self):
         return self._notificationRole
+
+    @property
+    def WinnerChannel(self):
+        return self._winnerChannel
 
     @property
     def ContestCount(self):
@@ -286,7 +291,7 @@ class DataLayer():
         connection = psycopg2.connect(self._connectionString)
         cursor = connection.cursor()
 
-        cursor.execute("SELECT Contest_Name, Notification_Role_Id, Contest_Count FROM Contest_Parameter WHERE ServerId = %s", (serverId,))
+        cursor.execute("SELECT Contest_Name, Notification_Role_Id, Winner_Channel_Id, Contest_Count FROM Contest_Parameter WHERE ServerId = %s", (serverId,))
         record = cursor.fetchone()
 
-        return Contest(record[0], record[1], record[2])
+        return Contest(record[0], record[1], record[2], record[3])

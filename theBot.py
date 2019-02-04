@@ -239,11 +239,12 @@ async def on_message(message):
 
                             entrants.sort(key = lambda ent: ent.VoteCount, reverse = True)
 
+                            winnerChannel = message.server.get_channel(contest.WinnerChannel)
                             if contest.ContestCount == 1:
                                 sentence = "{0.Mention}\nLes heureux gagnants de ce {1.ContestCount}er concours {1.ContestName} sont...".format(contestRole, contest)
                             else:
                                 sentence = "{0.Mention}\nLes heureux gagnants de ce {1.ContestCount}ème concours {1.ContestName} sont...".format(contestRole, contest)
-                            await client.send_message(message.channel, sentence)
+                            await client.send_message(winnerChannel, sentence)
 
                             currentVote = 0
                             winnerCount = 0
@@ -260,21 +261,21 @@ async def on_message(message):
                                     break
 
                                 if winnerCount == 1:
-                                    await client.send_message(message.channel, "1er\n" + currentWinnerString)
+                                    await client.send_message(winnerChannel, "1er\n" + currentWinnerString)
                                 else:
-                                    await client.send_message(message.channel, "{0}ème\n{1}".format(winnerCount, currentWinnerString))
+                                    await client.send_message(winnerChannel, "{0}ème\n{1}".format(winnerCount, currentWinnerString))
                                 
-                                await client.send_typing(message.channel)
+                                await client.send_typing(winnerChannel)
                                 request = urllib.request.Request(winner.ImageUrl, data = None, headers = {"User-Agent": "Mozilla/5.0 (Windows NT 6.1; Win64; x64)"})
                                 filePath = "{0.Author.name}_{1.ContestName}_{1.ContestCount}{2}".format(winner, contest, winner.ImageUrl[winner.ImageUrl.rfind("."):])
                                 with urllib.request.urlopen(request) as image, open(filePath, "wb") as localImgFile:
                                     localImgFile.write(image.read())
-                                await client.send_file(message.channel, filePath)
+                                await client.send_file(winnerChannel, filePath)
                                 remove(filePath)
                                 
 
-                            await client.send_typing(message.channel)
-                            await client.send_message(message.channel, "**Bravo à eux !**")
+                            await client.send_typing(winnerChannel)
+                            await client.send_message(winnerChannel, "**Bravo à eux !**")
                             await client.change_presence(game=None, status=discord.Status.online)
                     return
 
