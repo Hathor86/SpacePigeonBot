@@ -200,10 +200,16 @@ async def on_message(message):
                     
                     elif command == "contest" and "-contest" in message.channel.name:
 
+                        parameters = match.group("parameters").split(" ")
+
+                        if parameters and parameters[0] == "set_winner_channel":
+                            return
+
+                        if parameters and parameters[0] == "set_notification_role":
+                            return
+
                         contest = dataLayer.GetContestForServer(message.server.id)
                         contestRole = GetRole(message.server, contest.NotificationRole)
-
-                        parameters = match.group("parameters").split(" ")
 
                         entrantCount = 0
                         if parameters and parameters[0] == "prepare":

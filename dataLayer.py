@@ -32,7 +32,7 @@ class NicedFrontierStoreObject(FrontierStoreObject):
             self._deltaPrice = deltaPrice
             self._deltaPricePercent = deltaPricePercent
 
-        
+
 
         @property
         def DeltaPrice(self):
@@ -100,8 +100,8 @@ class DataLayer():
 
         self._connectionString = config.connectionString
 
-    
-    
+
+
     async def RefreshFromStore(self):
 
         logger.info("Refreshing from store")
