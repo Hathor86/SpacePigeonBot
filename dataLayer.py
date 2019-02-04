@@ -66,6 +66,29 @@ class DiscordServer():
         return self._channelId
 
 
+class Contest():
+
+    def __init__(self, contestName, notificationRole, contestCount):
+
+        self._contestName = contestName
+        self._notificationRole = notificationRole
+        self._contestCount = contestCount
+
+
+
+    @property
+    def ContestName(self):
+        return self._contestName
+    
+    @property
+    def NotificationRole(self):
+        return self._notificationRole
+
+    @property
+    def ContestCount(self):
+        return self._contestCount
+
+
 class DataLayer():
 
     def __init__(self):
@@ -255,3 +278,15 @@ class DataLayer():
         connection.close()
 
         return diff
+
+
+
+    def GetContestForServer(self, serverId):
+
+        connection = psycopg2.connect(self._connectionString)
+        cursor = connection.cursor()
+
+        cursor.execute("SELECT Contest_Name, Notification_Role_Id, Contest_Count FROM Contest_Parameter WHERE ServerId = %s", (serverId,))
+        record = cursor.fetchone()
+
+        return Contest(record[0], record[1], record[2])

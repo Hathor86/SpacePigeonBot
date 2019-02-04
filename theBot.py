@@ -56,6 +56,14 @@ allRegisteredServer = []
 
 
 
+def GetRole(serverId, roleId):
+    server = client.get_server(serverId)
+    for role in server.roles:
+        if role.id == roleId:
+            return role
+
+
+
 async def PerfomManualRefresh():
     async with dataLocker:
         await client.change_presence(game=discord.Game(name="Inspecte le store"), status=discord.Status.dnd)
@@ -197,7 +205,10 @@ async def on_message(message):
                         return
                     
                     elif command == "contest" and "-contest" in message.channel.name:
-                            
+
+                        contest = dataLayer.GetContestForServer(message.server.id)
+                        contestRole = GetRole(message.server, contest.NotificationRole)
+
                         parameters = match.group("parameters").split(" ")
 
                         entrantCount = 0
@@ -207,13 +218,17 @@ async def on_message(message):
                                     await client.add_reaction(msg, "♥")
                                     entrantCount += 1
                             
-                            sentence = "La phase de soumission est terminée pour ce xeme #nom.\n"
-                            sentence += "Vous avez jusqu'à **Dimanche 20:00 pour voter**, en ajoutant une réaction ♥ aux images que préférez parmi les {0} proposées.".format(entrantCount)
+                            if contest.ContestCount == 1:
+                                sentence = "{0.Mention}\nLa phase de soumission est terminée pour ce {1.ContestCount}er concours {1.ContestName}.\n".format(contestRole, contest)
+                            else:
+                                sentence = "{0.Mention}\nLa phase de soumission est terminée pour ce {1.ContestCount}ème concours {1.ContestName}.\n".format(contestRole, contest)
+                            sentence += "Vous avez jusqu'à **Dimanche 20:00** pour voter, en ajoutant une réaction ♥ aux images que préférez parmi les {0} proposées.".format(entrantCount)
                             await client.send_message(message.channel, sentence)
                             return
 
                         if parameters and parameters[0] == "winners":
                             
+                            await client.change_presence(game=discord.Game(name="Déclare les gagnants du concours"), status=discord.Status.dnd)
                             if len(parameters) > 1:
                                 try:
                                     numberOfWinner = int(parameters[1])
@@ -230,11 +245,14 @@ async def on_message(message):
 
                             entrants.sort(key = lambda ent: ent.VoteCount, reverse = True)
 
+                            if contest.ContestCount == 1:
+                                sentence = "{0.Mention}\nLes heureux gagnants de ce {1.ContestCount}er concours {1.ContestName} sont...".format(contestRole, contest)
+                            else:
+                                sentence = "{0.Mention}\nLes heureux gagnants de ce {1.ContestCount}ème concours {1.ContestName} sont...".format(contestRole, contest)
+                            await client.send_message(message.channel, sentence)
+
                             currentVote = 0
                             winnerCount = 0
-
-                            await client.send_message(message.channel, "Les gagnants du concours sont")
-
                             for winner in entrants:
 
                                 if currentVote == winner.VoteCount:
@@ -254,16 +272,18 @@ async def on_message(message):
                                 
                                 await client.send_typing(message.channel)
                                 request = urllib.request.Request(winner.ImageUrl, data = None, headers = {"User-Agent": "Mozilla/5.0 (Windows NT 6.1; Win64; x64)"})
-                                filePath = "{0.Author.name}_{1}_{2}{3}".format(winner, "contest", "x", winner.ImageUrl[winner.ImageUrl.rfind("."):])
+                                filePath = "{0.Author.name}_{1.ContestName}_{1.ContestCount}{2}".format(winner, contest, winner.ImageUrl[winner.ImageUrl.rfind("."):])
                                 with urllib.request.urlopen(request) as image, open(filePath, "wb") as localImgFile:
                                     localImgFile.write(image.read())
                                 await client.send_file(message.channel, filePath)
                                 remove(filePath)
                                 
 
+                            await client.send_typing(message.channel)
                             await client.send_message(message.channel, "**Bravo à eux !**")
+                            await client.change_presence(game=None, status=discord.Status.online)
                     return
-            
+
             #Query command/regex
             match = re.match(r"^{0.mention}\s+(?P<query>(?:\w+\s*)+)\s*\?$".format(client.user), message.content)
             logger.debug(match)
