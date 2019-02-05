@@ -286,6 +286,43 @@ class DataLayer():
 
 
 
+    def CreateContest(self, serverId, contestName, notificationRoleId, notificationRoleName, winnerChannelId, winnerChannelName):
+
+        connection = psycopg2.connect(self._connectionString)
+        cursor = connection.cursor()
+
+        cursor.execute("INSERT INTO Contest_Parameter VALUES(%s, %s, %s, %s, %s, %s)", (serverId, contestName, notificationRoleId, notificationRoleName, winnerChannelId, winnerChannelName))
+        connection.commit()
+
+        cursor.close()
+        connection.close()
+
+
+
+    def RemoveContest(self, serverId):
+        connection = psycopg2.connect(self._connectionString)
+        cursor = connection.cursor()
+
+        cursor.execute("DELETE FROM Contest_Parameter WHERE ServerId = %s", (serverId, ))
+        connection.commit()
+
+        cursor.close()
+        connection.close()
+
+
+
+    def IncrementContestCount(self, serverId):
+        connection = psycopg2.connect(self._connectionString)
+        cursor = connection.cursor()
+
+        cursor.execute("UPDATE Contest_Parameter SET Contest_Count = Contest_Count + 1 WHERE ServerId = %s", (serverId, ))
+        connection.commit()
+
+        cursor.close()
+        connection.close()
+
+
+
     def GetContestForServer(self, serverId):
 
         connection = psycopg2.connect(self._connectionString)
@@ -294,4 +331,12 @@ class DataLayer():
         cursor.execute("SELECT Contest_Name, Notification_Role_Id, Winner_Channel_Id, Contest_Count FROM Contest_Parameter WHERE ServerId = %s", (serverId,))
         record = cursor.fetchone()
 
-        return Contest(record[0], record[1], record[2], record[3])
+        contest = None
+
+        if record:
+            contest = Contest(record[0], record[1], record[2], record[3])
+
+        cursor.close()
+        connection.close()
+
+        return contest

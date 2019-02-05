@@ -201,27 +201,40 @@ async def on_message(message):
                     elif command == "contest" and "-contest" in message.channel.name:
 
                         parameters = match.group("parameters").split(" ")
-
-                        if parameters and parameters[0] == "set_winner_channel":
-                            return
-
-                        if parameters and parameters[0] == "set_notification_role":
-                            return
-
                         contest = dataLayer.GetContestForServer(message.server.id)
-                        contestRole = GetRole(message.server, contest.NotificationRole)
 
-                        entrantCount = 0
+                        if parameters and parameters[0] == "start":
+                            if contest:
+                                await client.send_message(message.channel, "Un contest est déjà en cours sur ce serveur. Il faut le clôturer en me mentionnant avec la commade `!contest finish`")
+                                return
+                            else:
+                                contestName = parameters[1]
+                                contestWinnerChannel = message.channel_mentions[0]
+                                contestRole = message.role_mentions[0]
+
+                                if contestName and contestWinnerChannel and contestRole:
+                                    dataLayer.CreateContest(message.server.id, contestName, contestRole.id, contestRole.name, contestWinnerChannel.id, contestWinnerChannel.name)
+                                    await client.send_message(message.channel, "Ok {0.author.mention}, le contest {1} a bien été créé.".format(message, contestName))
+                                    return
+                            return
+                        
+                        if parameters and parameters[0] == "finish":
+                            dataLayer.RemoveContest(message.serverid)
+                            await client.send_message(message.channel, "Ok {0.author.mention}, le contest {1.Name} a bien été supprimé.".format(message, contest))
+                            return
+
+                        contestRole = GetRole(message.server.id, contest.NotificationRole)
                         if parameters and parameters[0] == "prepare":
+                            entrantCount = 0
                             async for msg in client.logs_from(message.channel, limit = 100):
                                 if msg.attachments:
                                     await client.add_reaction(msg, "♥")
                                     entrantCount += 1
                             
                             if contest.ContestCount == 1:
-                                sentence = "{0.Mention}\nLa phase de soumission est terminée pour ce {1.ContestCount}er concours {1.ContestName}.\n".format(contestRole, contest)
+                                sentence = "{0.mention}\nLa phase de soumission est terminée pour ce {1.ContestCount}er concours {1.ContestName}.\n".format(contestRole, contest)
                             else:
-                                sentence = "{0.Mention}\nLa phase de soumission est terminée pour ce {1.ContestCount}ème concours {1.ContestName}.\n".format(contestRole, contest)
+                                sentence = "{0.mention}\nLa phase de soumission est terminée pour ce {1.ContestCount}ème concours {1.ContestName}.\n".format(contestRole, contest)
                             sentence += "Vous avez jusqu'à **Dimanche 20:00** pour voter, en ajoutant une réaction ♥ aux images que préférez parmi les {0} proposées.".format(entrantCount)
                             await client.send_message(message.channel, sentence)
                             return
@@ -247,9 +260,9 @@ async def on_message(message):
 
                             winnerChannel = message.server.get_channel(contest.WinnerChannel)
                             if contest.ContestCount == 1:
-                                sentence = "{0.Mention}\nLes heureux gagnants de ce {1.ContestCount}er concours {1.ContestName} sont...".format(contestRole, contest)
+                                sentence = "{0.mention}\nLes heureux gagnants de ce {1.ContestCount}er photo contest {1.ContestName} sont...".format(contestRole, contest)
                             else:
-                                sentence = "{0.Mention}\nLes heureux gagnants de ce {1.ContestCount}ème concours {1.ContestName} sont...".format(contestRole, contest)
+                                sentence = "{0.mention}\nLes heureux gagnants de ce {1.ContestCount}ème photo contest {1.ContestName} sont...".format(contestRole, contest)
                             await client.send_message(winnerChannel, sentence)
 
                             currentVote = 0
@@ -282,6 +295,7 @@ async def on_message(message):
 
                             await client.send_typing(winnerChannel)
                             await client.send_message(winnerChannel, "**Bravo à eux !**")
+                            dataLayer.IncrementContestCount(message.server.id)
                             await client.change_presence(game=None, status=discord.Status.online)
                     return
 
