@@ -168,6 +168,38 @@ async def on_message(message):
     if message.author != client.user:
         
         if client.user.mentioned_in(message):
+
+            #help command
+            match = re.match(r"^{0.mention}\s+help$".format(client.user), message.content)
+            if match:
+                discordEmbed = discord.Embed(title = "Commandes disponibles")
+
+                #regular commands
+                discordEmbed.add_field(name = "@Mention help", value = "Affiche cette aide", inline = False)
+                discordEmbed.add_field(name = "@Mention objet_du_store ?", value = "Recherche un objet sur le store frontier", inline = False)
+
+                if message.author.server_permissions.administrator:
+                    #admin command
+                    discordEmbed.add_field(name = "@Mention !pigeon_channel", value = "Change le canal de notification des Space Pigeon pour le canal courant; celui d'où cette commande a été lancée.", inline = False)
+                    discordEmbed.add_field(name = "@Mention !pigeon_role @Role", value = "Change le role de notification des space pigeon pour le mentionné", inline = False)
+                    discordEmbed.add_field(name = "@Mention !store", value = "Lance une vérification du store frontier; tous les serveurs seront notifiés si il y a du neuf.", inline = False)
+                    contestValue = "Crée un nouveau contest pour le serveur depuis lequel cette commande a été lancée. Il ne peut y avoir qu'un seul contest actif par serveur.\n"
+                    contestValue += "**Attention** le nom du canal depuis lequel cette commande est lancée **DOIT** se terminer par -contest!\n"
+                    contestValue += "Paramètres:\n"
+                    contestValue += "- nom_du_constest: Le nom que l'on souhaite donner au concours (ex:*DW2-FR-contest*). **Pas d'espace**\n"
+                    contestValue += "- #canal_annonce_gagnant: Canal dans lequel les gagnants seront annoncés. Les images seront automatiquement réuploadée afin d'éviter une suppression malencontreuse.\n"
+                    contestValue += "- @Role_a_notifier: Role utilisé pour avertir les participants; Lors de l'ouverture aux votes et lors de l'annonce des gagnants.\n"
+                    discordEmbed.add_field(name = "@Mention !contest start nom_du_constest #canal_annonce_gagnant @Role_a_notifier", value = contestValue, inline = False)
+                    discordEmbed.add_field(name = "@Mention !contest finish", value = "Termine le concours sur le serveur depuis lequel cette commande a été lancée.", inline = False)
+                    discordEmbed.add_field(name = "@Mention !contest prepare", value = "Annonce l'ouverture du concours aux votes et ajoute une réaction ♥ à chacune des images du canal", inline = False)
+                    contestValue = "Annonce les gagnants du concours en comptants les ♥. Optionnellement, on peut indiqué un nombre de gagnants *(3 par défaut)*\n"
+                    contestValue += "Les ex-aequo sont pris en compte. (ex: A: 5votes, B: 3votes, C: 3votes et D: 1vote). "
+                    contestValue += "Si on veut 2 gagnants: `@DSNSpirit !contest winners 2` => A, B **et** C seront annoncé car B et C sont ex-aequo.\n"
+                    contestValue += "Les joueurs gagnants sont automatiquement mentionnés"
+                    discordEmbed.add_field(name = "@Mention !contest winners #nombre#", value = contestValue, inline = False)
+                
+                await client.send_message(message.author, "Voici ce que votre humble serviteur peut faire pour vous", embed = discordEmbed)
+                return
             
             if message.author.server_permissions.administrator: 
                 #Admin Command regex
@@ -297,6 +329,14 @@ async def on_message(message):
                             await client.send_message(winnerChannel, "**Bravo à eux !**")
                             dataLayer.IncrementContestCount(message.server.id)
                             await client.change_presence(game=None, status=discord.Status.online)
+
+                    elif command == "reset_tick":
+                        global CURRENTTICK
+                        CURRENTTICK = 0
+                        logger.info("Tick reset. Next refresh in 4 hours")
+                        return
+
+
                     return
 
             #Query command/regex
