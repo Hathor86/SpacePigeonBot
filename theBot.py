@@ -11,8 +11,6 @@ import urllib
 import config
 from dataLayer import DataLayer
 from contestEntrant import ContestEntrant
-#temporary added for migration
-import psycopg2
 
 ##########################################
 # Empty config.py sample                 #
@@ -432,37 +430,6 @@ async def on_ready():
 
     logger.info("Logged in as {0.user.name}".format(client))
     logger.debug("Client id is {0.user.id}".format(client))
-
-    for server in client.servers:
-        print("server: {0.name} - id: {0.id}".format(server))
-        
-        #Run once
-        logger.info("Upgrading to 3.0")
-        connection = psycopg2.connect(dataLayer._connectionString)
-        cursor = connection.cursor()
-
-        cursor.execute("SELECT serverid FROM RegisteredServer WHERE serverid = %s", (server.id,))
-        registeredServer = cursor.fetchall()
-        if registeredServer:
-            cursor.execute("UPDATE RegisteredServer SET ServerName = %s WHERE ServerId = %s", (server.name, server.id))
-        else:
-            cursor.execute("INSERT INTO RegisteredServer VALUES (%s, %s)", (server.name, server.id))
-
-        cursor.execute("SELECT Notification_Role_Id, Notification_Channel_Id FROM SpacePigeon_Parameter WHERE serverid = %s", (server.id,))
-        registeredServer = cursor.fetchall()
-        if registeredServer:
-            for record in registeredServer:
-                for role in server.roles:
-                    if role.id == record[0]:
-                        cursor.execute("UPDATE SpacePigeon_Parameter SET Notification_Role_Name = %s, Notification_Channel_Name = %s WHERE ServerId = %s", (role.name, client.get_channel(record[1]).name, server.id))
-                        break
-
-        connection.commit()
-        logger.info("Upgrade complete")
-        cursor.close()
-        connection.close()
-
-
 
 client.loop.create_task(checkNotify())
 client.run(TOKEN)
