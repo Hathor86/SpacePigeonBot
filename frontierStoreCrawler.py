@@ -8,6 +8,8 @@ from time import sleep
 from html.parser import HTMLParser
 from bs4 import BeautifulSoup
 from urllib.request import urlopen
+from logging.handlers import WatchedFileHandler
+from os import path
 
 logger = logging.getLogger(__name__)
 logger.setLevel(config.logLevel)
@@ -19,6 +21,12 @@ console = logging.StreamHandler()
 console.setLevel(config.logLevel)
 console.setFormatter(formatter)
 logger.addHandler(console)
+
+#logfile handler
+logfile = WatchedFileHandler(path.join(config.logPath, config.logFileName))
+logfile.setLevel(config.logLevel)
+logfile.setFormatter(formatter)
+logger.addHandler(logfile)
 
 class FrontierStoreObject():
 

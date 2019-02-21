@@ -3,11 +3,14 @@ import discord
 import logging
 from logging.handlers import WatchedFileHandler
 from os import path
+from os import remove
 import asyncio
 import random
 import re
+import urllib
 import config
 from dataLayer import DataLayer
+from contestEntrant import ContestEntrant
 
 ##########################################
 # Empty config.py sample                 #
@@ -17,10 +20,12 @@ from dataLayer import DataLayer
 # logLevel = logging.DEBUG               #
 # logLevel = "dbname=theDb user=theUser" #
 # refreshTick = 240                      #
+# logPath = ""                           #
+# logFileName = "spacepigeon.log"        #
 ##########################################
 
 TOKEN = config.TOKEN
-VERSION = "2.2"
+VERSION = "3.0"
 REFRESH = config.refreshTick
 CURRENTTICK = 0
 
@@ -49,72 +54,12 @@ allRegisteredServer = []
 
 
 
-def SanityCheck():
+def GetRole(serverId, roleId):
+    server = client.get_server(serverId)
+    for role in server.roles:
+        if role.id == roleId:
+            return role
 
-    logger.info("Performing sanity check")
-
-    currentRegistered = []
-    currentRegisteredRole = []
-    allServerId = []
-    global allRegisteredServer
-
-    allRegisteredServer = dataLayer.GetAllServer()
-
-    for server in allRegisteredServer:
-        currentRegistered.append(server.ServerId)
-        currentRegisteredRole.append(server.RoleId)
-
-    logger.debug("Checking server where bot is present")
-
-    for server in client.servers:
-
-        logger.debug("Checking {0.name}".format(server))
-
-        allServerId.append(server.id)
-        isListOk = False
-        for serverId in currentRegistered:
-            if serverId == server.id:
-                isListOk = True
-
-        if not isListOk:
-
-            logger.info("Server {0.name} not registered, trying registering it".format(server))
-
-            for role in server.roles:
-
-                roleOk = False
-                if role.name == "Space Pigeon":
-
-                    logger.debug("Server {0.name} has a role named ""Space Pigeon"", registering it".format(server))
-
-                    dataLayer.RegisterDiscordServerRole(server.id, role.id)
-                    roleOk = True
-                
-                if not roleOk:
-                    client.send_message(server.default_channel, "Pas de rôle ""Space Pigeon"" pour ce serveur. Créez-en et tapez .register")
-                    logger.warn("No ""Space Pigeon"" role for server {0.name}".format(server))
-        
-        #TODO : Perfom role & channel check
-           
-
-    
-    logger.info("Checking registered server in DB")
-    logger.debug("Registered id: {0}".format(currentRegistered))
-
-    for serverid in currentRegistered:
-
-        isListOk = False
-        for serverid2 in allServerId:
-            if serverid2 == serverId:
-                isListOk = True
-        
-        if not isListOk:
-            logger.info("Server {0} doesn't use the bot anymore, removing it".format(str(serverid)))
-            dataLayer.UnregisterDiscordServerRole(serverid)
-    
-    allRegisteredServer = dataLayer.GetAllServer()
-    logger.info("Sanity check finished")
-            
 
 
 async def PerfomManualRefresh():
@@ -141,74 +86,69 @@ async def checkNotify():
             if newItemsToBuy:
                 for server in serverToNotify:
 
-                    servertoPing = client.get_server(server.ServerId)
-                    logger.debug("server to notify: {0} - id:{1.ServerId}".format(servertoPing, server))
-                    for role in servertoPing.roles:
+                    role = GetRole(server.ServerId, server.RoleId)
+                    channel = client.get_channel(server.ChannelId)
 
-                        if role.id == server.RoleId:
-                            channel = client.get_channel(server.ChannelId)
+                    if len(newItemsToBuy) > 0:
+                        dataLayer.SetServerAsNotified(server.ServerId)
+                        await client.send_message(channel, "Il y a du neuf sur le store {0.mention} !".format(role))
 
-                            if len(newItemsToBuy) > 0:
-                                dataLayer.SetServerAsNotified(server.ServerId)
-                                await client.send_message(channel, "Il y a du neuf sur le store {0.mention} !".format(role))
-
-                                if len(newItemsToBuy) < 6:
-                                    for item in newItemsToBuy:
-                                        discordFrontierStoreEmbed = discord.Embed(title = "Je craque !", url = item.Url)
-                                        discordFrontierStoreEmbed.set_thumbnail(url = item.ImageUrl)
-                                        if item.DeltaPrice == None:
-                                            await client.send_message(channel, "Un superbe **{0.Name}** a **{0.Value}€** seulement!".format(item), embed = discordFrontierStoreEmbed)
-                                        else:
-                                            await client.send_message(channel, "Un superbe **{0.Name}** a **{0.Value} €** seulement!\nUne réduction de **{0.DeltaPricePercent:.2f}%** soit une économie de **{0.DeltaPrice}€** ! Rendez-vous compte!".format(item), embed = discordFrontierStoreEmbed)
+                        if len(newItemsToBuy) < 6:
+                            for item in newItemsToBuy:
+                                discordFrontierStoreEmbed = discord.Embed(title = "Je craque !", url = item.Url)
+                                discordFrontierStoreEmbed.set_thumbnail(url = item.ImageUrl)
+                                if item.DeltaPrice == None:
+                                    await client.send_message(channel, "Un superbe **{0.Name}** a **{0.Value}€** seulement!".format(item), embed = discordFrontierStoreEmbed)
                                 else:
-                                    newItems = 0
-                                    newItemsList = []
-                                    discountedItems = 0
-                                    discountedItemsList = []
-                                    totalDiscount = 0
-                                    for item in newItemsToBuy:
-                                        if item.DeltaPrice == 0:
-                                            newItems += 1
-                                            newItemsList.append(item)
-                                        else:
-                                            discountedItems += 1
-                                            discountedItemsList.append(item)
-                                            totalDiscount += item.DeltaPrice
-                                    
-                                    sentence = ""
-                                    if newItems != 0:
-                                        sentence = newItems + " nouveaux objets"
-                                    if sentence != "" and discountedItems != 0:
-                                        sentence += " et "
-                                    if discountedItems !=0:
-                                        sentence += "{0} objets en réduction (une économie possible de **{1:.2f}€**)".format(discountedItems, totalDiscount)
-                                    sentence += "\nPar souci pour votre portefeuille, j'en ai sélectionné 5."
+                                    await client.send_message(channel, "Un superbe **{0.Name}** a **{0.Value} €** seulement!\nUne réduction de **{0.DeltaPricePercent:.2f}%** soit une économie de **{0.DeltaPrice}€** ! Rendez-vous compte!".format(item), embed = discordFrontierStoreEmbed)
+                        else:
+                            newItems = 0
+                            newItemsList = []
+                            discountedItems = 0
+                            discountedItemsList = []
+                            totalDiscount = 0
+                            for item in newItemsToBuy:
+                                if not item.DeltaPrice:
+                                    newItems += 1
+                                    newItemsList.append(item)
+                                else:
+                                    discountedItems += 1
+                                    discountedItemsList.append(item)
+                                    totalDiscount += item.DeltaPrice
+                            
+                            sentence = ""
+                            if newItems != 0:
+                                sentence = str(newItems) + " nouveaux objets"
+                            if sentence != "" and discountedItems != 0:
+                                sentence += " et "
+                            if discountedItems !=0:
+                                sentence += "{0} objets en réduction (une économie possible de **{1:.2f}€**)".format(discountedItems, totalDiscount)
+                            sentence += "\nPar souci pour votre portefeuille, j'en ai sélectionné 5."
 
-                                    await client.send_message(channel, sentence)
-                                    await asyncio.sleep(5)
+                            await client.send_message(channel, sentence)
+                            await client.send_typing(channel)
+                            await asyncio.sleep(5)
 
-                                    if newItems > 5:
-                                        for item in random.sample(newItemsToBuy, 5):
-                                            discordFrontierStoreEmbed = discord.Embed(title = "Je craque !", url = item.Url)
-                                            discordFrontierStoreEmbed.set_thumbnail(url = item.ImageUrl)
-                                            if item.DeltaPrice == None:
-                                                await client.send_message(channel, "Un superbe **{0.Name}** a **{0.Value}€** seulement!".format(item), embed = discordFrontierStoreEmbed)
-                                            else:
-                                                await client.send_message(channel, "Un superbe **{0.Name}** a **{0.Value} €** seulement!\nUne réduction de **{0.DeltaPricePercent:.2f}%** soit une économie de **{0.DeltaPrice}€** ! Rendez-vous compte!".format(item), embed = discordFrontierStoreEmbed)
+                            if newItems > 5:
+                                for item in random.sample(newItemsToBuy, 5):
+                                    discordFrontierStoreEmbed = discord.Embed(title = "Je craque !", url = item.Url)
+                                    discordFrontierStoreEmbed.set_thumbnail(url = item.ImageUrl)
+                                    if item.DeltaPrice == None:
+                                        await client.send_message(channel, "Un superbe **{0.Name}** a **{0.Value}€** seulement!".format(item), embed = discordFrontierStoreEmbed)
                                     else:
-                                        for item in newItemsList:
-                                            discordFrontierStoreEmbed = discord.Embed(title = "Je craque !", url = item.Url)
-                                            discordFrontierStoreEmbed.set_thumbnail(url = item.ImageUrl)
-                                            await client.send_message(channel, "Un superbe **{0.Name}** a **{0.Value}€** seulement!".format(item), embed = discordFrontierStoreEmbed)
-                                        for item in random.sample(discountedItemsList, 5 - newItems):
-                                            discordFrontierStoreEmbed = discord.Embed(title = "Je craque !", url = item.Url)
-                                            discordFrontierStoreEmbed.set_thumbnail(url = item.ImageUrl)
-                                            if item.DeltaPrice == None:
-                                                await client.send_message(channel, "Un superbe **{0.Name}** a **{0.Value}€** seulement!".format(item), embed = discordFrontierStoreEmbed)
-                                            else:
-                                                await client.send_message(channel, "Un superbe **{0.Name}** a **{0.Value} €** seulement!\nUne réduction de **{0.DeltaPricePercent:.2f}%** soit une économie de **{0.DeltaPrice}€** ! Rendez-vous compte!".format(item), embed = discordFrontierStoreEmbed)
-                                
-                            break
+                                        await client.send_message(channel, "Un superbe **{0.Name}** a **{0.Value} €** seulement!\nUne réduction de **{0.DeltaPricePercent:.2f}%** soit une économie de **{0.DeltaPrice}€** ! Rendez-vous compte!".format(item), embed = discordFrontierStoreEmbed)
+                            else:
+                                for item in newItemsList:
+                                    discordFrontierStoreEmbed = discord.Embed(title = "Je craque !", url = item.Url)
+                                    discordFrontierStoreEmbed.set_thumbnail(url = item.ImageUrl)
+                                    await client.send_message(channel, "Un superbe **{0.Name}** a **{0.Value}€** seulement!".format(item), embed = discordFrontierStoreEmbed)
+                                for item in random.sample(discountedItemsList, 5 - newItems):
+                                    discordFrontierStoreEmbed = discord.Embed(title = "Je craque !", url = item.Url)
+                                    discordFrontierStoreEmbed.set_thumbnail(url = item.ImageUrl)
+                                    if item.DeltaPrice == None:
+                                        await client.send_message(channel, "Un superbe **{0.Name}** a **{0.Value}€** seulement!".format(item), embed = discordFrontierStoreEmbed)
+                                    else:
+                                        await client.send_message(channel, "Un superbe **{0.Name}** a **{0.Value} €** seulement!\nUne réduction de **{0.DeltaPricePercent:.2f}%** soit une économie de **{0.DeltaPrice}€** ! Rendez-vous compte!".format(item), embed = discordFrontierStoreEmbed)
 
         global CURRENTTICK
         CURRENTTICK += 1
@@ -226,29 +166,177 @@ async def on_message(message):
     if message.author != client.user:
         
         if client.user.mentioned_in(message):
+
+            #help command
+            match = re.match(r"^{0.mention}\s+help$".format(client.user), message.content)
+            if match:
+                discordEmbed = discord.Embed(title = "Commandes disponibles")
+
+                #regular commands
+                discordEmbed.add_field(name = "@Mention help", value = "Affiche cette aide", inline = False)
+                discordEmbed.add_field(name = "@Mention objet_du_store ?", value = "Recherche un objet sur le store frontier", inline = False)
+
+                if message.author.server_permissions.administrator:
+                    #admin command
+                    discordEmbed.add_field(name = "@Mention !pigeon_channel", value = "Change le canal de notification des Space Pigeon pour le canal courant; celui d'où cette commande a été lancée.", inline = False)
+                    discordEmbed.add_field(name = "@Mention !pigeon_role @Role", value = "Change le role de notification des space pigeon pour le mentionné", inline = False)
+                    discordEmbed.add_field(name = "@Mention !store", value = "Lance une vérification du store frontier; tous les serveurs seront notifiés si il y a du neuf.", inline = False)
+                    contestValue = "Crée un nouveau contest pour le serveur depuis lequel cette commande a été lancée. Il ne peut y avoir qu'un seul contest actif par serveur.\n"
+                    contestValue += "**Attention** le nom du canal depuis lequel cette commande est lancée **DOIT** se terminer par -contest!\n"
+                    contestValue += "Paramètres:\n"
+                    contestValue += "- nom_du_constest: Le nom que l'on souhaite donner au concours (ex:*DW2-FR-contest*). **Pas d'espace**\n"
+                    contestValue += "- #canal_annonce_gagnant: Canal dans lequel les gagnants seront annoncés. Les images seront automatiquement réuploadée afin d'éviter une suppression malencontreuse.\n"
+                    contestValue += "- @Role_a_notifier: Role utilisé pour avertir les participants; Lors de l'ouverture aux votes et lors de l'annonce des gagnants.\n"
+                    discordEmbed.add_field(name = "@Mention !contest start nom_du_constest #canal_annonce_gagnant @Role_a_notifier", value = contestValue, inline = False)
+                    discordEmbed.add_field(name = "@Mention !contest finish", value = "Termine le concours sur le serveur depuis lequel cette commande a été lancée.", inline = False)
+                    discordEmbed.add_field(name = "@Mention !contest prepare", value = "Annonce l'ouverture du concours aux votes et ajoute une réaction ♥ à chacune des images du canal", inline = False)
+                    contestValue = "Annonce les gagnants du concours en comptants les ♥. Optionnellement, on peut indiqué un nombre de gagnants *(3 par défaut)*\n"
+                    contestValue += "Les ex-aequo sont pris en compte. (ex: A: 5votes, B: 3votes, C: 3votes et D: 1vote). "
+                    contestValue += "Si on veut 2 gagnants: `@DSNSpirit !contest winners 2` => A, B **et** C seront annoncé car B et C sont ex-aequo.\n"
+                    contestValue += "Les joueurs gagnants sont automatiquement mentionnés"
+                    discordEmbed.add_field(name = "@Mention !contest winners #nombre#", value = contestValue, inline = False)
+                
+                await client.send_message(message.author, "Voici ce que votre humble serviteur peut faire pour vous", embed = discordEmbed)
+                return
             
             if message.author.server_permissions.administrator: 
                 #Admin Command regex
-                match = re.match(r"^{0.mention}\s+!(?P<command>\S*)".format(client.user), message.content)
+                match = re.match(r"^{0.mention}\s+!(?P<command>\S*)\s+(?P<parameters>.*)$".format(client.user), message.content)
                 logger.debug(match)
                 logger.debug(message.content)
                 if match:
                     command = match.group("command")
-                    logger.info("Command found :{0}".format(command))
+                    logger.info("Admin command found :{0}".format(command))
+                    logger.info("Parameters :{0}".format(match.group("parameters")))
                     
                     #List of command
-                    if command == "channel":
-                        dataLayer.SetChannelId(message.server.id, message.channel.id)
+                    if command == "pigeon_channel":
+                        dataLayer.SetPigeonChannel(message.server.id, message.channel.id, message.channel.name)
                         await client.send_message(message.channel, "Ok {0.author.mention}, je communiquerai les infos dans ce canal".format(message))
                         return
+
+                    elif command == "pigeon_role":
+                        if message.role_mentions:
+                            dataLayer.SetPigeonRole(message.server.id, message.role_mentions[0].id, message.role_mentions[0].name)
+                            await client.send_message(message.channel, "Ok {0.author.mention}, le rôle {1.name} sera pingé".format(message, message.role_mentions[0]))
+                            return
                     
                     elif command == "store":
                         await client.send_message(message.channel, "Ok {0.author.mention}, je vais vérifier".format(message))
                         await PerfomManualRefresh()
                         if not dataLayer.WhatNew():
                             await client.send_message(message.channel, "Désolé, rien de nouveau sur le store")
+                        return
+                    
+                    elif command == "contest" and "-contest" in message.channel.name:
+
+                        parameters = match.group("parameters").split(" ")
+                        contest = dataLayer.GetContestForServer(message.server.id)
+
+                        if parameters and parameters[0] == "start":
+                            if contest:
+                                await client.send_message(message.channel, "Un contest est déjà en cours sur ce serveur. Il faut le clôturer en me mentionnant avec la commade `!contest finish`")
+                                return
+                            else:
+                                contestName = parameters[1]
+                                contestWinnerChannel = message.channel_mentions[0]
+                                contestRole = message.role_mentions[0]
+
+                                if contestName and contestWinnerChannel and contestRole:
+                                    dataLayer.CreateContest(message.server.id, contestName, contestRole.id, contestRole.name, contestWinnerChannel.id, contestWinnerChannel.name)
+                                    await client.send_message(message.channel, "Ok {0.author.mention}, le contest {1} a bien été créé.".format(message, contestName))
+                                    return
                             return
-            
+                        
+                        if parameters and parameters[0] == "finish":
+                            dataLayer.RemoveContest(message.serverid)
+                            await client.send_message(message.channel, "Ok {0.author.mention}, le contest {1.Name} a bien été supprimé.".format(message, contest))
+                            return
+
+                        contestRole = GetRole(message.server.id, contest.NotificationRole)
+                        if parameters and parameters[0] == "prepare":
+                            entrantCount = 0
+                            async for msg in client.logs_from(message.channel, limit = 100):
+                                if msg.attachments:
+                                    await client.add_reaction(msg, "♥")
+                                    entrantCount += 1
+                            
+                            if contest.ContestCount == 1:
+                                sentence = "{0.mention}\nLa phase de soumission est terminée pour ce {1.ContestCount}er concours {1.ContestName}.\n".format(contestRole, contest)
+                            else:
+                                sentence = "{0.mention}\nLa phase de soumission est terminée pour ce {1.ContestCount}ème concours {1.ContestName}.\n".format(contestRole, contest)
+                            sentence += "Vous avez jusqu'à **Dimanche 20:00** pour voter, en ajoutant une réaction ♥ aux images que préférez parmi les {0} proposées.".format(entrantCount)
+                            await client.send_message(message.channel, sentence)
+                            return
+
+                        if parameters and parameters[0] == "winners":
+                            
+                            await client.change_presence(game=discord.Game(name="Déclare les gagnants du concours"), status=discord.Status.dnd)
+                            if len(parameters) > 1:
+                                try:
+                                    numberOfWinner = int(parameters[1])
+                                except:
+                                    numberOfWinner = 3
+                            else:
+                                numberOfWinner = 3
+                            
+                            entrants = []
+                            async for msg in client.logs_from(message.channel, limit = 100):
+                                if msg.reactions:
+                                    entrants.append(ContestEntrant(msg.author, msg.reactions[0].count, msg.attachments[0]["url"]))
+                                    logger.debug("{0.author} : {0.reactions[0].count} vote(s)".format(msg))
+
+                            entrants.sort(key = lambda ent: ent.VoteCount, reverse = True)
+
+                            winnerChannel = message.server.get_channel(contest.WinnerChannel)
+                            if contest.ContestCount == 1:
+                                sentence = "{0.mention}\nLes heureux gagnants de ce {1.ContestCount}er photo contest {1.ContestName} sont...".format(contestRole, contest)
+                            else:
+                                sentence = "{0.mention}\nLes heureux gagnants de ce {1.ContestCount}ème photo contest {1.ContestName} sont...".format(contestRole, contest)
+                            await client.send_message(winnerChannel, sentence)
+
+                            currentVote = 0
+                            winnerCount = 0
+                            for winner in entrants:
+
+                                if currentVote == winner.VoteCount:
+                                    currentWinnerString = "ex aequo {0.mention} avec **{1}** votes également".format(winner.Author, winner.VoteCount)
+                                else:
+                                    currentWinnerString = "{0.mention} avec **{1}** votes".format(winner.Author, winner.VoteCount)
+                                    currentVote = winner.VoteCount
+                                    winnerCount += 1
+                                
+                                if winnerCount > numberOfWinner:
+                                    break
+
+                                if winnerCount == 1:
+                                    await client.send_message(winnerChannel, "1er\n" + currentWinnerString)
+                                else:
+                                    await client.send_message(winnerChannel, "{0}ème\n{1}".format(winnerCount, currentWinnerString))
+                                
+                                await client.send_typing(winnerChannel)
+                                request = urllib.request.Request(winner.ImageUrl, data = None, headers = {"User-Agent": "Mozilla/5.0 (Windows NT 6.1; Win64; x64)"})
+                                filePath = "{0.Author.name}_{1.ContestName}_{1.ContestCount}{2}".format(winner, contest, winner.ImageUrl[winner.ImageUrl.rfind("."):])
+                                with urllib.request.urlopen(request) as image, open(filePath, "wb") as localImgFile:
+                                    localImgFile.write(image.read())
+                                await client.send_file(winnerChannel, filePath)
+                                remove(filePath)
+                                
+
+                            await client.send_typing(winnerChannel)
+                            await client.send_message(winnerChannel, "**Bravo à eux !**")
+                            dataLayer.IncrementContestCount(message.server.id)
+                            await client.change_presence(game=None, status=discord.Status.online)
+
+                    elif command == "reset_tick":
+                        global CURRENTTICK
+                        CURRENTTICK = 0
+                        logger.info("Tick reset. Next refresh in 4 hours")
+                        return
+
+
+                    return
+
             #Query command/regex
             match = re.match(r"^{0.mention}\s+(?P<query>(?:\w+\s*)+)\s*\?$".format(client.user), message.content)
             logger.debug(match)
@@ -325,21 +413,15 @@ async def on_message(message):
 
 @client.event
 async def on_server_join(server):
-
-    roleOk = False
-    for role in server.roles:
-            if role.name == "Space Pigeon":
-                roleOk = True
-                logger.info("Server {0.name} add the bot and has a role ""Space Pigeon"", registering it".format(server))
-                dataLayer.RegisterDiscordServerRole(server.id, role.id)
+    logger.info("Server {0.name} add the bot, registering it".format(server))
+    dataLayer.RegisterDiscordServer(server.id, server.name)
 
 
 
 @client.event
 async def on_server_remove(server):
-
     logger.info("Server {0.name} removed the bot, unregistering it".format(server))
-    dataLayer.UnregisterDiscordServerRole(server.id)
+    dataLayer.UnregisterDiscordServer(server.id, server.name)
 
 
 
@@ -348,10 +430,6 @@ async def on_ready():
 
     logger.info("Logged in as {0.user.name}".format(client))
     logger.debug("Client id is {0.user.id}".format(client))
-
-    #SanityCheck()
-
-
 
 client.loop.create_task(checkNotify())
 client.run(TOKEN)
