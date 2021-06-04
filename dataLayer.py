@@ -1,8 +1,10 @@
-import psycopg2
+import mariadb
 import logging
 import config
 import asyncio
-from frontierStoreCrawler import FrontierStoreCrawler
+from frontierStoreCrawler import ShipFrontierStoreCrawler
+from frontierStoreCrawler import FleetCarrierFrontierStoreCrawler
+from frontierStoreCrawler import CommanderFrontierStoreCrawler
 from frontierStoreCrawler import FrontierStoreObject
 from logging.handlers import WatchedFileHandler
 from os import path
@@ -28,7 +30,11 @@ class NicedFrontierStoreObject(FrontierStoreObject):
 
         def __init__(self, id, name, price, url, imageurl, deltaPrice, deltaPricePercent):
             
-            super().__init__(id, name, price, url, imageurl)
+            super()._id = id
+            super()._name = name
+            super()._value = price
+            super()._url = url
+            super()._imageUrl = imageurl
             self._deltaPrice = deltaPrice
             self._deltaPricePercent = deltaPricePercent
 
@@ -66,33 +72,6 @@ class DiscordServer():
         return self._channelId
 
 
-class Contest():
-
-    def __init__(self, contestName, notificationRole, winnerChannel, contestCount):
-
-        self._contestName = contestName
-        self._notificationRole = notificationRole
-        self._winnerChannel = winnerChannel
-        self._contestCount = contestCount
-
-
-
-    @property
-    def ContestName(self):
-        return self._contestName
-    
-    @property
-    def NotificationRole(self):
-        return self._notificationRole
-
-    @property
-    def WinnerChannel(self):
-        return self._winnerChannel
-
-    @property
-    def ContestCount(self):
-        return self._contestCount
-
 
 class DataLayer():
 
@@ -115,12 +94,13 @@ class DataLayer():
 
         logger.debug("Current store deleted")
 
-        storeCrawler = FrontierStoreCrawler()
-        await storeCrawler.Crawl()
+        storeCrawler = [ShipFrontierStoreCrawler(), FleetCarrierFrontierStoreCrawler(), CommanderFrontierStoreCrawler()]
+        for crawler in storeCrawler:
+            await crawler.Crawl()
 
-        for item in storeCrawler.AllItems:
-            logger.debug("Inserting {0.Name} into DB".format(item))
-            cursor.execute("INSERT INTO CurrentStore(id, name, price, url, imageurl) VALUES(%s, %s, %s, %s, %s)", (item.ID, item.Name, item.Value, item.Url, item.ImageUrl))
+            for item in crawler.AllItems:
+                logger.debug("Inserting {0.Name} into DB".format(item))
+                cursor.execute("INSERT INTO CurrentStore(id, name, price, url, imageurl) VALUES(%s, %s, %s, %s, %s)", (item.ID, item.Name, item.Value, item.Url, item.ImageUrl))
 
         logger.debug("Cleaning history")
         cursor.execute("DELETE FROM StoreHistory WHERE isLastRun = 'f' AND historydate < current_timestamp - interval '8 hour'")
@@ -283,60 +263,3 @@ class DataLayer():
         connection.close()
 
         return diff
-
-
-
-    def CreateContest(self, serverId, contestName, notificationRoleId, notificationRoleName, winnerChannelId, winnerChannelName):
-
-        connection = psycopg2.connect(self._connectionString)
-        cursor = connection.cursor()
-
-        cursor.execute("INSERT INTO Contest_Parameter VALUES(%s, %s, %s, %s, %s, %s)", (serverId, contestName, notificationRoleId, notificationRoleName, winnerChannelId, winnerChannelName))
-        connection.commit()
-
-        cursor.close()
-        connection.close()
-
-
-
-    def RemoveContest(self, serverId):
-        connection = psycopg2.connect(self._connectionString)
-        cursor = connection.cursor()
-
-        cursor.execute("DELETE FROM Contest_Parameter WHERE ServerId = %s", (serverId, ))
-        connection.commit()
-
-        cursor.close()
-        connection.close()
-
-
-
-    def IncrementContestCount(self, serverId):
-        connection = psycopg2.connect(self._connectionString)
-        cursor = connection.cursor()
-
-        cursor.execute("UPDATE Contest_Parameter SET Contest_Count = Contest_Count + 1 WHERE ServerId = %s", (serverId, ))
-        connection.commit()
-
-        cursor.close()
-        connection.close()
-
-
-
-    def GetContestForServer(self, serverId):
-
-        connection = psycopg2.connect(self._connectionString)
-        cursor = connection.cursor()
-
-        cursor.execute("SELECT Contest_Name, Notification_Role_Id, Winner_Channel_Id, Contest_Count FROM Contest_Parameter WHERE ServerId = %s", (serverId,))
-        record = cursor.fetchone()
-
-        contest = None
-
-        if record:
-            contest = Contest(record[0], record[1], record[2], record[3])
-
-        cursor.close()
-        connection.close()
-
-        return contest

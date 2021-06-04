@@ -1,4 +1,4 @@
-#! /usr/bin/python3.6 -u
+#! /usr/bin/python -u
 import discord
 import logging
 from logging.handlers import WatchedFileHandler
@@ -98,9 +98,9 @@ async def checkNotify():
                                 discordFrontierStoreEmbed = discord.Embed(title = "Je craque !", url = item.Url)
                                 discordFrontierStoreEmbed.set_thumbnail(url = item.ImageUrl)
                                 if item.DeltaPrice == None:
-                                    await client.send_message(channel, "Un superbe **{0.Name}** a **{0.Value}€** seulement!".format(item), embed = discordFrontierStoreEmbed)
+                                    await client.send_message(channel, "Un superbe **{0.Name}** a **{0.Value} ARX** seulement!".format(item), embed = discordFrontierStoreEmbed)
                                 else:
-                                    await client.send_message(channel, "Un superbe **{0.Name}** a **{0.Value} €** seulement!\nUne réduction de **{0.DeltaPricePercent:.2f}%** soit une économie de **{0.DeltaPrice}€** ! Rendez-vous compte!".format(item), embed = discordFrontierStoreEmbed)
+                                    await client.send_message(channel, "Un superbe **{0.Name}** a **{0.Value} ARX** seulement!\nUne réduction de **{0.DeltaPricePercent:.2f}%** soit une économie de **{0.DeltaPrice}€** ! Rendez-vous compte!".format(item), embed = discordFrontierStoreEmbed)
                         else:
                             newItems = 0
                             newItemsList = []
@@ -181,20 +181,6 @@ async def on_message(message):
                     discordEmbed.add_field(name = "@Mention !pigeon_channel", value = "Change le canal de notification des Space Pigeon pour le canal courant; celui d'où cette commande a été lancée.", inline = False)
                     discordEmbed.add_field(name = "@Mention !pigeon_role @Role", value = "Change le role de notification des space pigeon pour le mentionné", inline = False)
                     discordEmbed.add_field(name = "@Mention !store", value = "Lance une vérification du store frontier; tous les serveurs seront notifiés si il y a du neuf.", inline = False)
-                    contestValue = "Crée un nouveau contest pour le serveur depuis lequel cette commande a été lancée. Il ne peut y avoir qu'un seul contest actif par serveur.\n"
-                    contestValue += "**Attention** le nom du canal depuis lequel cette commande est lancée **DOIT** se terminer par -contest!\n"
-                    contestValue += "Paramètres:\n"
-                    contestValue += "- nom_du_constest: Le nom que l'on souhaite donner au concours (ex:*DW2-FR-contest*). **Pas d'espace**\n"
-                    contestValue += "- #canal_annonce_gagnant: Canal dans lequel les gagnants seront annoncés. Les images seront automatiquement réuploadée afin d'éviter une suppression malencontreuse.\n"
-                    contestValue += "- @Role_a_notifier: Role utilisé pour avertir les participants; Lors de l'ouverture aux votes et lors de l'annonce des gagnants.\n"
-                    discordEmbed.add_field(name = "@Mention !contest start nom_du_constest #canal_annonce_gagnant @Role_a_notifier", value = contestValue, inline = False)
-                    discordEmbed.add_field(name = "@Mention !contest finish", value = "Termine le concours sur le serveur depuis lequel cette commande a été lancée.", inline = False)
-                    discordEmbed.add_field(name = "@Mention !contest prepare", value = "Annonce l'ouverture du concours aux votes et ajoute une réaction ♥ à chacune des images du canal", inline = False)
-                    contestValue = "Annonce les gagnants du concours en comptants les ♥. Optionnellement, on peut indiqué un nombre de gagnants *(3 par défaut)*\n"
-                    contestValue += "Les ex-aequo sont pris en compte. (ex: A: 5votes, B: 3votes, C: 3votes et D: 1vote). "
-                    contestValue += "Si on veut 2 gagnants: `@DSNSpirit !contest winners 2` => A, B **et** C seront annoncé car B et C sont ex-aequo.\n"
-                    contestValue += "Les joueurs gagnants sont automatiquement mentionnés"
-                    discordEmbed.add_field(name = "@Mention !contest winners #nombre#", value = contestValue, inline = False)
                 
                 await client.send_message(message.author, "Voici ce que votre humble serviteur peut faire pour vous", embed = discordEmbed)
                 return
@@ -227,106 +213,6 @@ async def on_message(message):
                         if not dataLayer.WhatNew():
                             await client.send_message(message.channel, "Désolé, rien de nouveau sur le store")
                         return
-                    
-                    elif command == "contest" and "-contest" in message.channel.name:
-
-                        parameters = match.group("parameters").split(" ")
-                        contest = dataLayer.GetContestForServer(message.server.id)
-
-                        if parameters and parameters[0] == "start":
-                            if contest:
-                                await client.send_message(message.channel, "Un contest est déjà en cours sur ce serveur. Il faut le clôturer en me mentionnant avec la commade `!contest finish`")
-                                return
-                            else:
-                                contestName = parameters[1]
-                                contestWinnerChannel = message.channel_mentions[0]
-                                contestRole = message.role_mentions[0]
-
-                                if contestName and contestWinnerChannel and contestRole:
-                                    dataLayer.CreateContest(message.server.id, contestName, contestRole.id, contestRole.name, contestWinnerChannel.id, contestWinnerChannel.name)
-                                    await client.send_message(message.channel, "Ok {0.author.mention}, le contest {1} a bien été créé.".format(message, contestName))
-                                    return
-                            return
-                        
-                        if parameters and parameters[0] == "finish":
-                            dataLayer.RemoveContest(message.serverid)
-                            await client.send_message(message.channel, "Ok {0.author.mention}, le contest {1.Name} a bien été supprimé.".format(message, contest))
-                            return
-
-                        contestRole = GetRole(message.server.id, contest.NotificationRole)
-                        if parameters and parameters[0] == "prepare":
-                            entrantCount = 0
-                            async for msg in client.logs_from(message.channel, limit = 100):
-                                if msg.attachments:
-                                    await client.add_reaction(msg, "♥")
-                                    entrantCount += 1
-                            
-                            if contest.ContestCount == 1:
-                                sentence = "{0.mention}\nLa phase de soumission est terminée pour ce {1.ContestCount}er concours {1.ContestName}.\n".format(contestRole, contest)
-                            else:
-                                sentence = "{0.mention}\nLa phase de soumission est terminée pour ce {1.ContestCount}ème concours {1.ContestName}.\n".format(contestRole, contest)
-                            sentence += "Vous avez jusqu'à **Dimanche 20:00** pour voter, en ajoutant une réaction ♥ aux images que préférez parmi les {0} proposées.".format(entrantCount)
-                            await client.send_message(message.channel, sentence)
-                            return
-
-                        if parameters and parameters[0] == "winners":
-                            
-                            await client.change_presence(game=discord.Game(name="Déclare les gagnants du concours"), status=discord.Status.dnd)
-                            if len(parameters) > 1:
-                                try:
-                                    numberOfWinner = int(parameters[1])
-                                except:
-                                    numberOfWinner = 3
-                            else:
-                                numberOfWinner = 3
-                            
-                            entrants = []
-                            async for msg in client.logs_from(message.channel, limit = 100):
-                                if msg.reactions:
-                                    entrants.append(ContestEntrant(msg.author, msg.reactions[0].count, msg.attachments[0]["url"]))
-                                    logger.debug("{0.author} : {0.reactions[0].count} vote(s)".format(msg))
-
-                            entrants.sort(key = lambda ent: ent.VoteCount, reverse = True)
-
-                            winnerChannel = message.server.get_channel(contest.WinnerChannel)
-                            if contest.ContestCount == 1:
-                                sentence = "{0.mention}\nLes heureux gagnants de ce {1.ContestCount}er photo contest {1.ContestName} sont...".format(contestRole, contest)
-                            else:
-                                sentence = "{0.mention}\nLes heureux gagnants de ce {1.ContestCount}ème photo contest {1.ContestName} sont...".format(contestRole, contest)
-                            await client.send_message(winnerChannel, sentence)
-
-                            currentVote = 0
-                            winnerCount = 0
-                            for winner in entrants:
-
-                                if currentVote == winner.VoteCount:
-                                    currentWinnerString = "ex aequo {0.mention} avec **{1}** votes également".format(winner.Author, winner.VoteCount)
-                                else:
-                                    currentWinnerString = "{0.mention} avec **{1}** votes".format(winner.Author, winner.VoteCount)
-                                    currentVote = winner.VoteCount
-                                    winnerCount += 1
-                                
-                                if winnerCount > numberOfWinner:
-                                    break
-
-                                if winnerCount == 1:
-                                    await client.send_message(winnerChannel, "1er\n" + currentWinnerString)
-                                else:
-                                    await client.send_message(winnerChannel, "{0}ème\n{1}".format(winnerCount, currentWinnerString))
-                                
-                                await client.send_typing(winnerChannel)
-                                request = urllib.request.Request(winner.ImageUrl, data = None, headers = {"User-Agent": "Mozilla/5.0 (Windows NT 6.1; Win64; x64)"})
-                                filePath = "{0.Author.name}_{1.ContestName}_{1.ContestCount}{2}".format(winner, contest, winner.ImageUrl[winner.ImageUrl.rfind("."):])
-                                with urllib.request.urlopen(request) as image, open(filePath, "wb") as localImgFile:
-                                    localImgFile.write(image.read())
-                                await client.send_file(winnerChannel, filePath)
-                                remove(filePath)
-                                
-
-                            await client.send_typing(winnerChannel)
-                            await client.send_message(winnerChannel, "**Bravo à eux !**")
-                            dataLayer.IncrementContestCount(message.server.id)
-                            await client.change_presence(game=None, status=discord.Status.online)
 
                     elif command == "reset_tick":
                         global CURRENTTICK
@@ -361,53 +247,6 @@ async def on_message(message):
                         discordFrontierStoreEmbed.set_thumbnail(url = item.ImageUrl)
                         await client.send_message(message.channel, "**{0.Name}** a **{0.Value}€** seulement!".format(item), embed = discordFrontierStoreEmbed)
                     return
-
-        #DSN command
-        match = re.match(r"^!poi\s+(?P<poi1>(?P<number1>\d+)(?P<type1>g|b|h|G|t)\s?)?(?P<poi2>(?P<number2>\d+)(?P<type2>g|b|h|G|t)\s?)?(?P<poi3>(?P<number3>\d+)(?P<type3>g|b|h|G|t)\s?)?(?P<poi4>(?P<number4>\d+)(?P<type4>g|b|h|G|t)\s?)?(?P<poi5>(?P<number5>\d+)(?P<type5>g|b|h|G|t)\s?)$", message.content)
-        logger.debug(match)
-        if match:
-
-            geo = 0
-            bio = 0
-            human = 0
-            guardian = 0
-            thargo = 0
-
-            for i in range(1,6):
-                if match.group("type" + str(i)):
-                    poiType = match.group("type" + str(i))
-                    poiCount = int(match.group("number" + str(i)))
-
-                    logger.debug("POI:{0} - Number:{1}".format(poiType, poiCount))
-
-                    if poiType == "g":
-                        geo += poiCount
-                    elif poiType == "b":
-                        bio += poiCount
-                    elif poiType == "h":
-                        human += poiCount
-                    elif poiType == "G":
-                        guardian += poiCount
-                    elif poiType == "t":
-                        thargo += poiCount
-
-            for i in range(1, geo + 1):
-                messageSent = await client.send_message(message.channel, "Geological {0}".format(i))
-                await client.add_reaction(messageSent, "▶")
-            for i in range(1, bio + 1):
-                messageSent = await client.send_message(message.channel, "Biological {0}".format(i))
-                await client.add_reaction(messageSent, "▶")
-            for i in range(1, human + 1):
-                messageSent = await client.send_message(message.channel, "Human {0}".format(i))
-                await client.add_reaction(messageSent, "▶")
-            for i in range(1, guardian + 1):
-                messageSent = await client.send_message(message.channel, "Guardian {0}".format(i))
-                await client.add_reaction(messageSent, "▶")
-            for i in range(1, thargo + 1):
-                messageSent = await client.send_message(message.channel, "Thargoid {0}".format(i))
-                await client.add_reaction(messageSent, "▶")
-
-            return
 
 
 
