@@ -1,4 +1,4 @@
-import mariadb
+#import mariadb
 import logging
 import config
 import asyncio

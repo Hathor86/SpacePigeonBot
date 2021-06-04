@@ -4,47 +4,47 @@ import logging
 from logging.handlers import WatchedFileHandler
 from os import path
 from os import remove
+from os import getenv
+from dotenv import load_dotenv
 import asyncio
 import random
 import re
 import urllib
-import config
+import atexit
 from dataLayer import DataLayer
-from contestEntrant import ContestEntrant
 
 ##########################################
-# Empty config.py sample                 #
+# Empty .env sample                      #
 #                                        #
-# import logging                         #
 # TOKEN = ''                             #
 # logLevel = logging.DEBUG               #
-# logLevel = "dbname=theDb user=theUser" #
+# connectionString = ""                  #
 # refreshTick = 240                      #
 # logPath = ""                           #
 # logFileName = "spacepigeon.log"        #
 ##########################################
 
-TOKEN = config.TOKEN
+TOKEN = getenv("TOKEN")
 VERSION = "3.0"
-REFRESH = config.refreshTick
+REFRESH = getenv("refreshTick")
 CURRENTTICK = 0
 
 dataLocker = asyncio.Lock()
 
 logger = logging.getLogger(__name__)
-logger.setLevel(config.logLevel)
+logger.setLevel(logging.DEBUG)
 
 formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
 
 #console handler
 console = logging.StreamHandler()
-console.setLevel(config.logLevel)
+console.setLevel(logging.DEBUG)
 console.setFormatter(formatter)
 logger.addHandler(console)
 
 #logfile handler
-logfile = WatchedFileHandler(path.join(config.logPath, config.logFileName))
-logfile.setLevel(config.logLevel)
+logfile = WatchedFileHandler(path.join(getenv("logPath"), getenv("logFileName")))
+logfile.setLevel(logging.DEBUG)
 logfile.setFormatter(formatter)
 logger.addHandler(logfile)
 
@@ -76,7 +76,8 @@ async def checkNotify():
     while not client.is_closed:
         logger.debug("Check for notification")
         
-        serverToNotify = dataLayer.GetServerToNotify()
+        #serverToNotify = dataLayer.GetServerToNotify()
+        serverToNotify = None
         logger.debug("server to notify: {0}".format(serverToNotify))
 
         if serverToNotify:
@@ -159,6 +160,12 @@ async def checkNotify():
         await asyncio.sleep(60)
 
 
+@atexit.register
+async def close_handle():
+    print("test")
+    client.close()
+
+
 
 @client.event
 async def on_message(message):
@@ -185,7 +192,7 @@ async def on_message(message):
                 await client.send_message(message.author, "Voici ce que votre humble serviteur peut faire pour vous", embed = discordEmbed)
                 return
             
-            if message.author.server_permissions.administrator: 
+            if message.author.guild_permissions.administrator: 
                 #Admin Command regex
                 match = re.match(r"^{0.mention}\s+!(?P<command>\S*)\s+(?P<parameters>.*)$".format(client.user), message.content)
                 logger.debug(match)
@@ -269,6 +276,7 @@ async def on_ready():
 
     logger.info("Logged in as {0.user.name}".format(client))
     logger.debug("Client id is {0.user.id}".format(client))
+
 
 client.loop.create_task(checkNotify())
 client.run(TOKEN)
