@@ -5,6 +5,7 @@ from logging.handlers import WatchedFileHandler
 from os import path
 from os import remove
 from os import getenv
+from discord.abc import GuildChannel
 from dotenv import load_dotenv
 import asyncio
 import random
@@ -26,8 +27,9 @@ from dataLayer import DataLayer
 
 TOKEN = getenv("TOKEN")
 VERSION = "3.0"
-REFRESH = getenv("refreshTick")
+REFRESH = int(getenv("refreshTick"))
 CURRENTTICK = 0
+ARXAVGPRICE = 0.0006213672
 
 dataLocker = asyncio.Lock()
 
@@ -55,7 +57,7 @@ allRegisteredServer = []
 
 
 def GetRole(serverId, roleId):
-    server = client.get_server(serverId)
+    server = client.get_guild(serverId)
     for role in server.roles:
         if role.id == roleId:
             return role
@@ -64,20 +66,19 @@ def GetRole(serverId, roleId):
 
 async def PerfomManualRefresh():
     async with dataLocker:
-        await client.change_presence(game=discord.Game(name="Inspecte le store"), status=discord.Status.dnd)
+        await client.change_presence(activity = discord.Game(name="Inspecte le store"), status = discord.Status.dnd)
         await dataLayer.RefreshFromStore()
-        await client.change_presence(game=None, status=discord.Status.online)
+        await client.change_presence(game = None, status = discord.Status.online)
 
 
 
 async def checkNotify():
     
-    await client.wait_until_ready()
-    while not client.is_closed:
+    await client.wait_until_ready()    
+    while not client.is_closed() and client.is_ready():
         logger.debug("Check for notification")
         
-        #serverToNotify = dataLayer.GetServerToNotify()
-        serverToNotify = None
+        serverToNotify = dataLayer.GetServerToNotify()
         logger.debug("server to notify: {0}".format(serverToNotify))
 
         if serverToNotify:
@@ -87,8 +88,8 @@ async def checkNotify():
             if newItemsToBuy:
                 for server in serverToNotify:
 
-                    role = GetRole(server.ServerId, server.RoleId)
-                    channel = client.get_channel(server.ChannelId)
+                    role = client.guilds[0].get_role(int(server.RoleId))
+                    channel = client.guilds[0].get_channel(int(server.ChannelId))
 
                     if len(newItemsToBuy) > 0:
                         dataLayer.SetServerAsNotified(server.ServerId)
@@ -99,7 +100,7 @@ async def checkNotify():
                                 discordFrontierStoreEmbed = discord.Embed(title = "Je craque !", url = item.Url)
                                 discordFrontierStoreEmbed.set_thumbnail(url = item.ImageUrl)
                                 if item.DeltaPrice == None:
-                                    await client.send_message(channel, "Un superbe **{0.Name}** a **{0.Value} ARX** seulement!".format(item), embed = discordFrontierStoreEmbed)
+                                    await client.send_message(channel, "Un superbe **{0.Name}** a **{0.Value} ARX** ({1}€ environ) seulement!".format(item, item.Value * ARXAVGPRICE), embed = discordFrontierStoreEmbed)
                                 else:
                                     await client.send_message(channel, "Un superbe **{0.Name}** a **{0.Value} ARX** seulement!\nUne réduction de **{0.DeltaPricePercent:.2f}%** soit une économie de **{0.DeltaPrice}€** ! Rendez-vous compte!".format(item), embed = discordFrontierStoreEmbed)
                         else:
@@ -258,14 +259,14 @@ async def on_message(message):
 
 
 @client.event
-async def on_server_join(server):
+async def on_guild_join(server):
     logger.info("Server {0.name} add the bot, registering it".format(server))
     dataLayer.RegisterDiscordServer(server.id, server.name)
 
 
 
 @client.event
-async def on_server_remove(server):
+async def on_guild_join(server):
     logger.info("Server {0.name} removed the bot, unregistering it".format(server))
     dataLayer.UnregisterDiscordServer(server.id, server.name)
 
@@ -276,6 +277,16 @@ async def on_ready():
 
     logger.info("Logged in as {0.user.name}".format(client))
     logger.debug("Client id is {0.user.id}".format(client))
+    logger.debug("Checking DB consistance")
+    for server in client.guilds:
+        if not dataLayer.ServerExists(server):
+            logger.warning("Server {0.name} does not exists".format(server))
+            dataLayer.RegisterDiscordServer(server)
+
+
+
+#@client.event
+#async def on_error():
 
 
 client.loop.create_task(checkNotify())

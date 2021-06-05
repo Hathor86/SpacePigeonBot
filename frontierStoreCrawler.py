@@ -3,29 +3,30 @@ import json
 import math
 import hashlib
 import logging
-import config
 import asyncio
 from time import sleep
 from html.parser import HTMLParser
 from bs4 import BeautifulSoup
 from urllib.request import urlopen
 from logging.handlers import WatchedFileHandler
+from dotenv import load_dotenv
+from os import getenv
 from os import path
 
 logger = logging.getLogger(__name__)
-logger.setLevel(config.logLevel)
+logger.setLevel(logging.DEBUG)
 
 formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
 
 #consolehandler
 console = logging.StreamHandler()
-console.setLevel(config.logLevel)
+console.setLevel(logging.DEBUG)
 console.setFormatter(formatter)
 logger.addHandler(console)
 
 #logfile handler
-logfile = WatchedFileHandler(path.join(config.logPath, config.logFileName))
-logfile.setLevel(config.logLevel)
+logfile = WatchedFileHandler(path.join(getenv("logPath"), getenv("logFileName")))
+logfile.setLevel(logging.DEBUG)
 logfile.setFormatter(formatter)
 logger.addHandler(logfile)
 
@@ -34,7 +35,7 @@ class FrontierStoreObject():
     urlbase = "https://dlc.elitedangerous.com"
 
     def __init__(self, name, value, url, imageUrl):
-        self._id = hashlib.sha256(name).hexdigest()
+        self._id = imageUrl.split("/")[-1][:-4]
         self._name = name
         self._value = value
         self._url = self.urlbase + url
@@ -63,9 +64,6 @@ class FrontierStoreObject():
 
 
 class FrontierStoreCrawlerBase():
-
-    initialPageUrl = ""
-    store_itemType = {}
     
     def __init__(self):
         self._storeObjects = []
@@ -96,21 +94,29 @@ class FrontierStoreCrawlerBase():
     async def Crawl(self):
 
         page = 1
+        #totalPage = 1000
+        logger.debug("Parsing {0}".format(self.__class__))
 
-        for t in self.store_itemType:
+        for t in self.StoreItemType:
 
-            while(page != 0):
+            logger.debug("Parsing {0}".format(t))
+            page = 1
+            totalPage = 1000
+
+            while(page <= totalPage):
                 logger.debug("Parsing page {0}".format(page))
 
-                soup = BeautifulSoup(urlopen("{0}extra_type={1}&page={2}".format(self.initialPageUrl, t, page)).read(), "html.parser")
+                soup = BeautifulSoup(urlopen("{0}extra_type={1}&page={2}".format(self.InitialPageURL, t, page)).read(), "html.parser")
+                if totalPage == 1000:
+                    if soup.find("ul", "pagination") == None:
+                        totalPage = 1
+                    else:
+                        totalPage = int(list(soup.find("ul", "pagination").descendants)[-7])
 
                 self._currentPage = soup
                 self.ParseCurrentPage()
 
-                if soup.find("ul", "pagination") != None and page != list(soup.find("ul", "pagination").descendants)[-7]:
-                    page = page + 1
-                else:
-                    page = 0
+                page = page + 1
                 
                 await asyncio.sleep(5)
 
@@ -122,11 +128,31 @@ class FrontierStoreCrawlerBase():
 
 
 
+    @property
+    def InitialPageURL(self):
+        return self._initialPageURL
+
+    @InitialPageURL.setter
+    def InitialPageURL(self, value):
+        self._initialPageURL = value
+
+
+
+    @property
+    def StoreItemType(self):
+        return self._store_itemType
+
+    @StoreItemType.setter
+    def StoreItemType(self, value):
+        self._store_itemType = value
+
+
+
 class ShipFrontierStoreCrawler(FrontierStoreCrawlerBase):
 
     def __init__(self):
-        super.initialPageUrl = "https://dlc.elitedangerous.com/ships/list?"
-        super.store_itemType = {
+        self.InitialPageURL = "https://dlc.elitedangerous.com/ships/list?"
+        self.StoreItemType = {
     
         "178" : "Cockpit customization",
         "179" : "Decals",
@@ -136,7 +162,6 @@ class ShipFrontierStoreCrawler(FrontierStoreCrawlerBase):
         "252" : "Detailing",
         "265" : "Covas"
         }
-        logger.debug("Parsing ships")
         super().__init__()
 
 
@@ -144,15 +169,14 @@ class ShipFrontierStoreCrawler(FrontierStoreCrawlerBase):
 class FleetCarrierFrontierStoreCrawler(FrontierStoreCrawlerBase):
 
     def __init__(self):
-        super.initialPageUrl = "https://dlc.elitedangerous.com/catalog/carrier/list?"
-        super.store_itemType = {
+        self.InitialPageURL = "https://dlc.elitedangerous.com/catalog/carrier/list?"
+        self.StoreItemType = {
     
         "298" : "Fleet carrier layouts",
         "299" : "Fleet carrier paint jobs",
         "300" : "Fleet carrier detailing",
         "301" : "Fleet carrier ATC"
         }
-        logger.debug("Parsing fleet carrier")
         super().__init__()
 
 
@@ -160,12 +184,11 @@ class FleetCarrierFrontierStoreCrawler(FrontierStoreCrawlerBase):
 class CommanderFrontierStoreCrawler(FrontierStoreCrawlerBase):
 
     def __init__(self):
-        super.initialPageUrl = "https://dlc.elitedangerous.com/catalog/cmdr/list?"
-        super.store_itemType = {
+        self.InitialPageURL = "https://dlc.elitedangerous.com/catalog/cmdr/list?"
+        self.StoreItemType = {
     
         "216" : "CMDR customization",
         "312" : "Suit customization",
         "317" : "Weapon customization"
         }
-        logger.debug("Parsing CMDR")
         super().__init__()
