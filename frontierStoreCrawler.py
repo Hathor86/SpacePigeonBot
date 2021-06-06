@@ -1,17 +1,13 @@
-import re
-import json
-import math
-import hashlib
-import logging
 import asyncio
-from time import sleep
+import logging
 from html.parser import HTMLParser
-from bs4 import BeautifulSoup
-from urllib.request import urlopen
 from logging.handlers import WatchedFileHandler
+from os import getenv, path
+from time import sleep
+from urllib.request import urlopen
+
+from bs4 import BeautifulSoup
 from dotenv import load_dotenv
-from os import getenv
-from os import path
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -51,7 +47,7 @@ class FrontierStoreObject():
 
     @property
     def Value(self):
-        return self._value
+        return int(self._value)
 
     @property
     def Url(self):

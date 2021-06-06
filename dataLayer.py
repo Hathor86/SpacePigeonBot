@@ -1,15 +1,16 @@
-import mariadb
-import logging
 import asyncio
-import discord
-from frontierStoreCrawler import ShipFrontierStoreCrawler
-from frontierStoreCrawler import FleetCarrierFrontierStoreCrawler
-from frontierStoreCrawler import CommanderFrontierStoreCrawler
-from frontierStoreCrawler import FrontierStoreObject
+import logging
 from logging.handlers import WatchedFileHandler
+from os import getenv, path
+
+import discord
+import mariadb
 from dotenv import load_dotenv
-from os import path
-from os import getenv
+
+from frontierStoreCrawler import (CommanderFrontierStoreCrawler,
+                                  FleetCarrierFrontierStoreCrawler,
+                                  FrontierStoreObject,
+                                  ShipFrontierStoreCrawler)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -28,27 +29,46 @@ logfile.setLevel(logging.DEBUG)
 logfile.setFormatter(formatter)
 logger.addHandler(logfile)
 
-class NicedFrontierStoreObject(FrontierStoreObject):
+class NicedFrontierStoreObject():
 
-        def __init__(self, id, name, price, url, imageurl, deltaPrice, deltaPricePercent):
-            
-            self._id = id
-            self._name = name
-            self._value = price
-            self._url = url
-            self._imageUrl = imageurl
-            self._deltaPrice = deltaPrice
-            self._deltaPricePercent = deltaPricePercent
+    def __init__(self, id, name, price, url, imageurl, deltaPrice, deltaPricePercent):
+        
+        self._id = id
+        self._name = name
+        self._value = price
+        self._url = url
+        self._imageUrl = imageurl
+        self._deltaPrice = deltaPrice
+        self._deltaPricePercent = deltaPricePercent
 
 
+    @property
+    def ID(self):
+        return self._id
+    
+    @property 
+    def Name(self):
+        return self._name
 
-        @property
-        def DeltaPrice(self):
-            return self._deltaPrice
+    @property
+    def Value(self):
+        return int(self._value)
 
-        @property
-        def DeltaPricePercent(self):
-            return self._deltaPricePercent
+    @property
+    def Url(self):
+        return self._url
+
+    @property
+    def ImageUrl(self):
+        return self._imageUrl
+        
+    @property
+    def DeltaPrice(self):
+        return self._deltaPrice
+
+    @property
+    def DeltaPricePercent(self):
+        return self._deltaPricePercent
 
 
 class DiscordServer():
@@ -148,7 +168,7 @@ class DataLayer():
         cursor = connection.cursor()
 
         cursor.execute("INSERT INTO RegisteredServer(ServerId, ServerName) VALUES(%s, %s)", (server.id, server.name))
-        cursor.execute("INSERT INTO SpacePigeon_Parameter (ServerId, Notification_Role_Id, Notification_Role_Name, Notification_Channel_Id, Notification_Channel_Name, Notification_Done) VALUES (%s, %s, %s, %s, %s, true)", (server.id, server.channels[0].id, server.channels[0].name, server.roles[0].id, server.roles[0].name))
+        cursor.execute("INSERT INTO SpacePigeon_Parameter (ServerId, Notification_Role_Id, Notification_Role_Name, Notification_Channel_Id, Notification_Channel_Name, Notification_Done) VALUES (%s, %s, %s, %s, %s, true)", (server.id, server.channels[1].id, server.channels[1].name, server.roles[0].id, server.roles[0].name))
         logger.info("Server {0} (id: {1}) sucessfully registered".format(server.name, server.id))
 
         connection.commit()
@@ -264,7 +284,7 @@ class DataLayer():
         logger.debug(item)
         cursor.execute("SELECT id, name, price, url, imageurl FROM CurrentStore WHERE lower(name) like %s", (item,))
         for record in cursor.fetchall():
-            items.append(FrontierStoreObject(record[0], record[1], record[2], record[3], record[4]))
+            items.append(NicedFrontierStoreObject(record[0], record[1], record[2], record[3], record[4], 0, 0))
         
         cursor.close()
         connection.close()
