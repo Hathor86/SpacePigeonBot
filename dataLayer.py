@@ -1,46 +1,74 @@
-import psycopg2
-import logging
-import config
 import asyncio
-from frontierStoreCrawler import FrontierStoreCrawler
-from frontierStoreCrawler import FrontierStoreObject
+import logging
 from logging.handlers import WatchedFileHandler
-from os import path
+from os import getenv, path
+
+import discord
+import mariadb
+from dotenv import load_dotenv
+
+from frontierStoreCrawler import (CommanderFrontierStoreCrawler,
+                                  FleetCarrierFrontierStoreCrawler,
+                                  FrontierStoreObject,
+                                  ShipFrontierStoreCrawler)
 
 logger = logging.getLogger(__name__)
-logger.setLevel(config.logLevel)
+logger.setLevel(logging.DEBUG)
 
 formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
 
 #consolehandler
 console = logging.StreamHandler()
-console.setLevel(config.logLevel)
+console.setLevel(logging.DEBUG)
 console.setFormatter(formatter)
 logger.addHandler(console)
 
 #logfile handler
-logfile = WatchedFileHandler(path.join(config.logPath, config.logFileName))
-logfile.setLevel(config.logLevel)
+logfile = WatchedFileHandler(path.join(getenv("logPath"), getenv("logFileName")))
+logfile.setLevel(logging.DEBUG)
 logfile.setFormatter(formatter)
 logger.addHandler(logfile)
 
-class NicedFrontierStoreObject(FrontierStoreObject):
+class NicedFrontierStoreObject():
 
-        def __init__(self, id, name, price, url, imageurl, deltaPrice, deltaPricePercent):
-            
-            super().__init__(id, name, price, url, imageurl)
-            self._deltaPrice = deltaPrice
-            self._deltaPricePercent = deltaPricePercent
+    def __init__(self, id, name, price, url, imageurl, deltaPrice, deltaPricePercent):
+        
+        self._id = id
+        self._name = name
+        self._value = price
+        self._url = url
+        self._imageUrl = imageurl
+        self._deltaPrice = deltaPrice
+        self._deltaPricePercent = deltaPricePercent
 
 
+    @property
+    def ID(self):
+        return self._id
+    
+    @property 
+    def Name(self):
+        return self._name
 
-        @property
-        def DeltaPrice(self):
-            return self._deltaPrice
+    @property
+    def Value(self):
+        return int(self._value)
 
-        @property
-        def DeltaPricePercent(self):
-            return self._deltaPricePercent
+    @property
+    def Url(self):
+        return self._url
+
+    @property
+    def ImageUrl(self):
+        return self._imageUrl
+        
+    @property
+    def DeltaPrice(self):
+        return self._deltaPrice
+
+    @property
+    def DeltaPricePercent(self):
+        return self._deltaPricePercent
 
 
 class DiscordServer():
@@ -66,39 +94,16 @@ class DiscordServer():
         return self._channelId
 
 
-class Contest():
-
-    def __init__(self, contestName, notificationRole, winnerChannel, contestCount):
-
-        self._contestName = contestName
-        self._notificationRole = notificationRole
-        self._winnerChannel = winnerChannel
-        self._contestCount = contestCount
-
-
-
-    @property
-    def ContestName(self):
-        return self._contestName
-    
-    @property
-    def NotificationRole(self):
-        return self._notificationRole
-
-    @property
-    def WinnerChannel(self):
-        return self._winnerChannel
-
-    @property
-    def ContestCount(self):
-        return self._contestCount
-
 
 class DataLayer():
 
     def __init__(self):
 
-        self._connectionString = config.connectionString
+        self._connectionString = getenv("connecionString")
+        self._database = getenv("database")
+        self._dbUser = getenv("dbUser")
+        self._dbPassword = getenv("dbPassword")
+        self._dbHost = getenv("dbHost")
 
 
 
@@ -106,24 +111,26 @@ class DataLayer():
 
         logger.info("Refreshing from store")
 
-        connection = psycopg2.connect(self._connectionString)
+        connection = mariadb.connect(database=self._database, user=self._dbUser, password=self._dbPassword, host=self._dbHost)
         cursor = connection.cursor()
 
-        cursor.execute("UPDATE storeHistory SET isLastRun = 'f' WHERE isLastRun = 't'")
-        cursor.execute("INSERT INTO storeHistory(id, name, price, url) SELECT id, name, price, url FROM currentStore")
-        cursor.execute("DELETE FROM currentStore")
+        cursor.execute("UPDATE StoreHistory SET islastrun = 'f' WHERE islastrun = 't'")
+        cursor.execute("INSERT INTO StoreHistory(id, name, price, url) SELECT id, name, price, url FROM CurrentStore")
+        cursor.execute("DELETE FROM CurrentStore")
+        connection.commit()
 
         logger.debug("Current store deleted")
 
-        storeCrawler = FrontierStoreCrawler()
-        await storeCrawler.Crawl()
+        storeCrawler = [ShipFrontierStoreCrawler(), FleetCarrierFrontierStoreCrawler(), CommanderFrontierStoreCrawler()]
+        for crawler in storeCrawler:
+            await crawler.Crawl()
 
-        for item in storeCrawler.AllItems:
-            logger.debug("Inserting {0.Name} into DB".format(item))
-            cursor.execute("INSERT INTO CurrentStore(id, name, price, url, imageurl) VALUES(%s, %s, %s, %s, %s)", (item.ID, item.Name, item.Value, item.Url, item.ImageUrl))
+            for item in crawler.AllItems:
+                logger.debug("Inserting {0.Name} into DB".format(item))
+                cursor.execute("INSERT INTO CurrentStore(id, name, price, url, imageurl) VALUES(%s, %s, %s, %s, %s)", (item.ID, item.Name, item.Value, item.Url, item.ImageUrl))
 
         logger.debug("Cleaning history")
-        cursor.execute("DELETE FROM StoreHistory WHERE isLastRun = 'f' AND historydate < current_timestamp - interval '8 hour'")
+        cursor.execute("DELETE FROM StoreHistory WHERE islastrun = 'f' AND historydate < Date_Sub(Now(), INTERVAL 8 HOUR)")
         connection.commit()
 
         logger.debug("Checking if notifications are necessary")
@@ -139,13 +146,30 @@ class DataLayer():
 
 
 
-    def RegisterDiscordServer(self, serverId, serverName):
+    def ServerExists(self, server: discord.Guild):
 
-        connection = psycopg2.connect(self._connectionString)
+        connection = mariadb.connect(database=self._database, user=self._dbUser, password=self._dbPassword, host=self._dbHost)
         cursor = connection.cursor()
 
-        cursor.execute("INSERT INTO RegisteredBot(ServerId, ServerName) VALUES(%s, %s)", (serverId, serverName))
-        logger.info("Server {0} (id: {1}) sucessfully registered".format(serverName, serverId))
+        cursor.execute("SELECT 1 FROM RegisteredServer WHERE ServerID = %s", (server.id, None))
+
+        test = len(cursor.fetchall()) == 1
+        cursor.close()
+        connection.close()
+
+        return test
+
+
+
+
+    def RegisterDiscordServer(self, server: discord.Guild):
+
+        connection = mariadb.connect(database=self._database, user=self._dbUser, password=self._dbPassword, host=self._dbHost)
+        cursor = connection.cursor()
+
+        cursor.execute("INSERT INTO RegisteredServer(ServerId, ServerName) VALUES(%s, %s)", (server.id, server.name))
+        cursor.execute("INSERT INTO SpacePigeon_Parameter (ServerId, Notification_Role_Id, Notification_Role_Name, Notification_Channel_Id, Notification_Channel_Name, Notification_Done) VALUES (%s, %s, %s, %s, %s, true)", (server.id, server.channels[1].id, server.channels[1].name, server.roles[0].id, server.roles[0].name))
+        logger.info("Server {0} (id: {1}) sucessfully registered".format(server.name, server.id))
 
         connection.commit()
 
@@ -154,13 +178,14 @@ class DataLayer():
 
 
 
-    def UnregisterDiscordServer(self, serverId, serverName):
+    def UnregisterDiscordServer(self, server: discord.Guild):
 
-        connection = psycopg2.connect(self._connectionString)
+        connection = mariadb.connect(database=self._database, user=self._dbUser, password=self._dbPassword, host=self._dbHost)
         cursor = connection.cursor()
 
-        cursor.execute("DELETE FROM RegisteredServer WHERE serverId = %s", (serverId))
-        logger.info("Server {0} (id: {1}) sucessfully removed".format(serverName, serverId))
+        cursor.execute("DELETE FROM RegisteredServer WHERE serverId = %s", (server.id))
+        cursor.execute("DELETE FROM SpacePigeon_Parameter WHERE serverId = %s", (server.id))
+        logger.info("Server {0} (id: {1}) sucessfully removed".format(server.name, server.id))
 
         connection.commit()
 
@@ -168,13 +193,13 @@ class DataLayer():
         connection.close()
 
 
-    def SetPigeonChannel(self, serverId, channelId, channelName):
+    def SetPigeonChannel(self, server: discord.Guild, channel: discord.TextChannel):
 
-        connection = psycopg2.connect(self._connectionString)
+        connection = mariadb.connect(database=self._database, user=self._dbUser, password=self._dbPassword, host=self._dbHost)
         cursor = connection.cursor()
 
-        cursor.execute("UPDATE SpacePigeon_Parameter SET Notification_Channel_Id = %s, Notification_Channel_Name = %s WHERE serverId = %s", (channelId, channelName, serverId))
-        logger.debug("Server id {0} set its pigeon channel to {1}".format(serverId, channelName))
+        cursor.execute("UPDATE SpacePigeon_Parameter SET Notification_Channel_Id = %s, Notification_Channel_Name = %s WHERE serverId = %s", (channel.id, channel.name, server.id))
+        logger.debug("Server {0} set its pigeon channel to {1}".format(server.name, channel.name))
 
         connection.commit()
 
@@ -183,13 +208,13 @@ class DataLayer():
 
 
 
-    def SetPigeonRole(self, serverId, roleId, roleName):
+    def SetPigeonRole(self, server: discord.Guild, role: discord.Role):
 
-        connection = psycopg2.connect(self._connectionString)
+        connection = mariadb.connect(database=self._database, user=self._dbUser, password=self._dbPassword, host=self._dbHost)
         cursor = connection.cursor()
 
-        cursor.execute("UPDATE SpacePigeon_Parameter SET Notification_Role_Id = %s, Notification_Role_Name = %s WHERE serverId = %s", (roleId, roleName, serverId))
-        logger.debug("Server id {0} set its pigeon role to {1}".format(serverId, roleName))
+        cursor.execute("UPDATE SpacePigeon_Parameter SET Notification_Role_Id = %s, Notification_Role_Name = %s WHERE serverId = %s", (role.id, role.name, server.id))
+        logger.debug("Server {0} set its pigeon role to {1}".format(server.name, role.name))
 
         connection.commit()
 
@@ -200,7 +225,7 @@ class DataLayer():
 
     def GetAllServer(self):
 
-        connection = psycopg2.connect(self._connectionString)
+        connection = mariadb.connect(database=self._database, user=self._dbUser, password=self._dbPassword, host=self._dbHost)
         cursor = connection.cursor()
 
         servers = []
@@ -217,7 +242,7 @@ class DataLayer():
     
 
     def GetServerToNotify(self):
-        connection = psycopg2.connect(self._connectionString)
+        connection = mariadb.connect(database=self._database, user=self._dbUser, password=self._dbPassword, host=self._dbHost)
         cursor = connection.cursor()
 
         servers = []
@@ -235,10 +260,10 @@ class DataLayer():
 
     def SetServerAsNotified(self, serverId):
         
-        connection = psycopg2.connect(self._connectionString)
+        connection = mariadb.connect(database=self._database, user=self._dbUser, password=self._dbPassword, host=self._dbHost)
         cursor = connection.cursor()
 
-        cursor.execute("UPDATE SpacePigeon_Parameter SET Notification_Done = 't' WHERE ServerId = '" + serverId + "'")
+        cursor.execute("UPDATE SpacePigeon_Parameter SET Notification_Done = true WHERE ServerId = '" + serverId + "'")
         logger.debug("Server with ID {0} has been notified".format(serverId))
 
         connection.commit()
@@ -250,7 +275,7 @@ class DataLayer():
 
     def Query(self, item):
 
-        connection = psycopg2.connect(self._connectionString)
+        connection = mariadb.connect(database=self._database, user=self._dbUser, password=self._dbPassword, host=self._dbHost)
         cursor = connection.cursor()
 
         items = []
@@ -259,7 +284,7 @@ class DataLayer():
         logger.debug(item)
         cursor.execute("SELECT id, name, price, url, imageurl FROM CurrentStore WHERE lower(name) like %s", (item,))
         for record in cursor.fetchall():
-            items.append(FrontierStoreObject(record[0], record[1], record[2], record[3], record[4]))
+            items.append(NicedFrontierStoreObject(record[0], record[1], record[2], record[3], record[4], 0, 0))
         
         cursor.close()
         connection.close()
@@ -270,7 +295,7 @@ class DataLayer():
 
     def WhatNew(self):
 
-        connection = psycopg2.connect(self._connectionString)
+        connection = mariadb.connect(database=self._database, user=self._dbUser, password=self._dbPassword, host=self._dbHost)
         cursor = connection.cursor()
 
         diff = []
@@ -283,60 +308,3 @@ class DataLayer():
         connection.close()
 
         return diff
-
-
-
-    def CreateContest(self, serverId, contestName, notificationRoleId, notificationRoleName, winnerChannelId, winnerChannelName):
-
-        connection = psycopg2.connect(self._connectionString)
-        cursor = connection.cursor()
-
-        cursor.execute("INSERT INTO Contest_Parameter VALUES(%s, %s, %s, %s, %s, %s)", (serverId, contestName, notificationRoleId, notificationRoleName, winnerChannelId, winnerChannelName))
-        connection.commit()
-
-        cursor.close()
-        connection.close()
-
-
-
-    def RemoveContest(self, serverId):
-        connection = psycopg2.connect(self._connectionString)
-        cursor = connection.cursor()
-
-        cursor.execute("DELETE FROM Contest_Parameter WHERE ServerId = %s", (serverId, ))
-        connection.commit()
-
-        cursor.close()
-        connection.close()
-
-
-
-    def IncrementContestCount(self, serverId):
-        connection = psycopg2.connect(self._connectionString)
-        cursor = connection.cursor()
-
-        cursor.execute("UPDATE Contest_Parameter SET Contest_Count = Contest_Count + 1 WHERE ServerId = %s", (serverId, ))
-        connection.commit()
-
-        cursor.close()
-        connection.close()
-
-
-
-    def GetContestForServer(self, serverId):
-
-        connection = psycopg2.connect(self._connectionString)
-        cursor = connection.cursor()
-
-        cursor.execute("SELECT Contest_Name, Notification_Role_Id, Winner_Channel_Id, Contest_Count FROM Contest_Parameter WHERE ServerId = %s", (serverId,))
-        record = cursor.fetchone()
-
-        contest = None
-
-        if record:
-            contest = Contest(record[0], record[1], record[2], record[3])
-
-        cursor.close()
-        connection.close()
-
-        return contest
