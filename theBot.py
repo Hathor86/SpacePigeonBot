@@ -88,69 +88,58 @@ async def checkNotify():
             if newItemsToBuy:
                 for server in serverToNotify:
 
-                    role = client.guilds[0].get_role(int(server.RoleId))
-                    channel = client.guilds[0].get_channel(int(server.ChannelId))
+                    real_Server = client.get_guild(int(server.ServerId))
+                    role = real_Server.get_role(int(server.RoleId))
+                    channel = real_Server.get_channel(int(server.ChannelId))                    
 
-                    if len(newItemsToBuy) > 0:
-                        dataLayer.SetServerAsNotified(server.ServerId)
-                        await client.send_message(channel, "Il y a du neuf sur le store {0.mention} !".format(role))
+                    await channel.send("Il y a du neuf sur le store {0.mention} !".format(role))
 
-                        if len(newItemsToBuy) < 6:
-                            for item in newItemsToBuy:
-                                discordFrontierStoreEmbed = discord.Embed(title = "Je craque !", url = item.Url)
-                                discordFrontierStoreEmbed.set_thumbnail(url = item.ImageUrl)
-                                if item.DeltaPrice == None:
-                                    await client.send_message(channel, "Un superbe **{0.Name}** a **{0.Value} ARX** ({1}€ environ) seulement!".format(item, item.Value * ARXAVGPRICE), embed = discordFrontierStoreEmbed)
-                                else:
-                                    await client.send_message(channel, "Un superbe **{0.Name}** a **{0.Value} ARX** seulement!\nUne réduction de **{0.DeltaPricePercent:.2f}%** soit une économie de **{0.DeltaPrice}€** ! Rendez-vous compte!".format(item), embed = discordFrontierStoreEmbed)
-                        else:
-                            newItems = 0
-                            newItemsList = []
-                            discountedItems = 0
-                            discountedItemsList = []
-                            totalDiscount = 0
-                            for item in newItemsToBuy:
-                                if not item.DeltaPrice:
-                                    newItems += 1
-                                    newItemsList.append(item)
-                                else:
-                                    discountedItems += 1
-                                    discountedItemsList.append(item)
-                                    totalDiscount += item.DeltaPrice
-                            
-                            sentence = ""
-                            if newItems != 0:
-                                sentence = str(newItems) + " nouveaux objets"
-                            if sentence != "" and discountedItems != 0:
-                                sentence += " et "
-                            if discountedItems !=0:
-                                sentence += "{0} objets en réduction (une économie possible de **{1:.2f}€**)".format(discountedItems, totalDiscount)
-                            sentence += "\nPar souci pour votre portefeuille, j'en ai sélectionné 5."
-
-                            await client.send_message(channel, sentence)
-                            await client.send_typing(channel)
-                            await asyncio.sleep(5)
-
-                            if newItems > 5:
-                                for item in random.sample(newItemsToBuy, 5):
-                                    discordFrontierStoreEmbed = discord.Embed(title = "Je craque !", url = item.Url)
-                                    discordFrontierStoreEmbed.set_thumbnail(url = item.ImageUrl)
-                                    if item.DeltaPrice == None:
-                                        await client.send_message(channel, "Un superbe **{0.Name}** a **{0.Value}€** seulement!".format(item), embed = discordFrontierStoreEmbed)
-                                    else:
-                                        await client.send_message(channel, "Un superbe **{0.Name}** a **{0.Value} €** seulement!\nUne réduction de **{0.DeltaPricePercent:.2f}%** soit une économie de **{0.DeltaPrice}€** ! Rendez-vous compte!".format(item), embed = discordFrontierStoreEmbed)
+                    if len(newItemsToBuy) < 6:
+                        for item in newItemsToBuy:
+                            discordFrontierStoreEmbed = discord.Embed(title = "Je craque !", url = item.Url)
+                            discordFrontierStoreEmbed.set_thumbnail(url = item.ImageUrl)
+                            if item.DeltaPrice == None:
+                                await channel.send("Un superbe **{0.Name}** a **{0.Value} ARX** ({1:.2f}€ environ) seulement!".format(item, item.Value * ARXAVGPRICE), embed = discordFrontierStoreEmbed)
                             else:
-                                for item in newItemsList:
-                                    discordFrontierStoreEmbed = discord.Embed(title = "Je craque !", url = item.Url)
-                                    discordFrontierStoreEmbed.set_thumbnail(url = item.ImageUrl)
-                                    await client.send_message(channel, "Un superbe **{0.Name}** a **{0.Value}€** seulement!".format(item), embed = discordFrontierStoreEmbed)
-                                for item in random.sample(discountedItemsList, 5 - newItems):
+                                await channel.send("Un superbe **{0.Name}** a **{0.Value} ARX** seulement!\nUne réduction de **{0.DeltaPricePercent:.2f}%** soit une économie de **{0.DeltaPrice} ARX** ({1:.2f}€ environ) ! Rendez-vous compte!".format(item, item.Value * ARXAVGPRICE), embed = discordFrontierStoreEmbed)
+                    else:
+                        newItems = 0
+                        newItemsList = []
+                        discountedItems = 0
+                        discountedItemsList = []
+                        totalDiscount = 0
+                        for item in newItemsToBuy:
+                            if not item.DeltaPrice:
+                                newItems += 1
+                                newItemsList.append(item)
+                            else:
+                                discountedItems += 1
+                                discountedItemsList.append(item)
+                                totalDiscount += item.DeltaPrice
+                        
+                        sentence = ""
+                        if newItems != 0:
+                            sentence = str(newItems) + " nouveaux objets"
+                        if sentence != "" and discountedItems != 0:
+                            sentence += " et "
+                        if discountedItems !=0:
+                            sentence += "{0} objets en réduction (une économie possible de **{1:.2f} ARX** ({2:.2f}€ environ))".format(discountedItems, totalDiscount, totalDiscount * ARXAVGPRICE)
+                        sentence += "\nPar souci pour votre portefeuille, j'en ai sélectionné 5."
+
+                        await channel.send(sentence)
+
+                        async with channel.typing():
+
+                            await asyncio.sleep(5)
+                            for item in random.sample(newItemsToBuy, 5):
                                     discordFrontierStoreEmbed = discord.Embed(title = "Je craque !", url = item.Url)
                                     discordFrontierStoreEmbed.set_thumbnail(url = item.ImageUrl)
                                     if item.DeltaPrice == None:
-                                        await client.send_message(channel, "Un superbe **{0.Name}** a **{0.Value}€** seulement!".format(item), embed = discordFrontierStoreEmbed)
+                                        await channel.send("Un superbe **{0.Name}** a **{0.Value} ARX** ({1:.2f}€ environ) seulement!".format(item, item.Value * ARXAVGPRICE), embed = discordFrontierStoreEmbed)
                                     else:
-                                        await client.send_message(channel, "Un superbe **{0.Name}** a **{0.Value} €** seulement!\nUne réduction de **{0.DeltaPricePercent:.2f}%** soit une économie de **{0.DeltaPrice}€** ! Rendez-vous compte!".format(item), embed = discordFrontierStoreEmbed)
+                                        await channel.send("Un superbe **{0.Name}** a **{0.Value} ARX** ({1:.2f}€ environ) seulement!\nUne réduction de **{0.DeltaPricePercent:.2f}%** soit une économie de **{0.DeltaPrice}€** ! Rendez-vous compte!".format(item, item.Value * ARXAVGPRICE), embed = discordFrontierStoreEmbed)      
+                        
+                    dataLayer.SetServerAsNotified(server.ServerId)
 
         global CURRENTTICK
         CURRENTTICK += 1
