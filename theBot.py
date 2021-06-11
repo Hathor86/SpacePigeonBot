@@ -25,6 +25,8 @@ from dataLayer import DataLayer
 # logFileName = "spacepigeon.log"        #
 ##########################################
 
+load_dotenv()
+
 TOKEN = getenv("TOKEN")
 VERSION = "3.0"
 REFRESH = int(getenv("refreshTick"))
@@ -83,9 +85,13 @@ async def checkNotify():
 
                     real_Server = bot.get_guild(int(server.ServerId))
                     role = real_Server.get_role(int(server.RoleId))
-                    channel = real_Server.get_channel(int(server.ChannelId))                    
+                    channel = real_Server.get_channel(int(server.ChannelId))    
 
-                    await channel.send("Il y a du neuf sur le store {0.mention} !".format(role))
+                    if channel:
+                        await channel.send("Il y a du neuf sur le store {0.mention} !".format(role))                        
+                    else:
+                        dataLayer.SetServerAsNotified(server.ServerId)
+                        continue
 
                     if len(newItemsToBuy) < 6:
                         for item in newItemsToBuy:
@@ -152,7 +158,7 @@ async def close_handle():
 
 
 @bot.command()
-async def store(ctx, *, args):
+async def pigeon(ctx, *, args):
     storeItems = dataLayer.Query(args)
 
     if len(storeItems) == 0:

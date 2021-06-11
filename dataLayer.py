@@ -12,6 +12,8 @@ from frontierStoreCrawler import (CommanderFrontierStoreCrawler,
                                   FrontierStoreObject,
                                   ShipFrontierStoreCrawler)
 
+load_dotenv()
+
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
