@@ -118,18 +118,24 @@ class DataLayer():
 
         cursor.execute("UPDATE StoreHistory SET islastrun = 'f' WHERE islastrun = 't'")
         cursor.execute("INSERT INTO StoreHistory(id, name, price, url) SELECT id, name, price, url FROM CurrentStore")
-        cursor.execute("DELETE FROM CurrentStore")
-        connection.commit()
+        cursor.execute("DELETE FROM CurrentStore")        
 
         logger.debug("Current store deleted")
 
         storeCrawler = [ShipFrontierStoreCrawler(), FleetCarrierFrontierStoreCrawler(), CommanderFrontierStoreCrawler()]
         for crawler in storeCrawler:
-            await crawler.Crawl()
 
-            for item in crawler.AllItems:
-                logger.debug("Inserting {0.Name} into DB".format(item))
-                cursor.execute("INSERT INTO CurrentStore(id, name, price, url, imageurl) VALUES(%s, %s, %s, %s, %s)", (item.ID, item.Name, item.Value, item.Url, item.ImageUrl))
+            if await crawler.Crawl():
+                for item in crawler.AllItems:
+                    logger.debug("Inserting {0.Name} into DB".format(item))
+                    cursor.execute("INSERT INTO CurrentStore(id, name, price, url, imageurl) VALUES(%s, %s, %s, %s, %s)", (item.ID, item.Name, item.Value, item.Url, item.ImageUrl))
+            else:
+                connection.rollback()
+                cursor.close()
+                connection.close()
+                logger.warning("Rolling back due to crwaling error")
+                return
+
 
         logger.debug("Cleaning history")
         cursor.execute("DELETE FROM StoreHistory WHERE islastrun = 'f' AND historydate < Date_Sub(Now(), INTERVAL 8 HOUR)")
@@ -138,9 +144,9 @@ class DataLayer():
         logger.debug("Checking if notifications are necessary")
         if self.WhatNew():
             cursor.execute("UPDATE SpacePigeon_Parameter SET Notification_Done = false")
-            logger.debug("Setting notification")
-            connection.commit()
+            logger.info("Setting notification")
 
+        connection.commit()
         cursor.close()
         connection.close()
 
@@ -279,12 +285,11 @@ class DataLayer():
 
         connection = mariadb.connect(database=self._database, user=self._dbUser, password=self._dbPassword, host=self._dbHost)
         cursor = connection.cursor()
-
         items = []
 
-        item = "%" + item.lower().replace(" ", "%") + "%"
-        logger.debug(item)
-        cursor.execute("SELECT id, name, price, url, imageurl FROM CurrentStore WHERE lower(name) like %s", (item,))
+        query = ",".join(item.split(" "))
+        logger.debug(query)
+        cursor.execute("SELECT id, name, price, url, imageurl FROM CurrentStore WHERE MATCH(name) AGAINST (%s IN BOOLEAN MODE)", (query,))
         for record in cursor.fetchall():
             items.append(NicedFrontierStoreObject(record[0], record[1], record[2], record[3], record[4], 0, 0))
         

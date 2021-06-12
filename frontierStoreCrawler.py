@@ -95,28 +95,35 @@ class FrontierStoreCrawlerBase():
         #totalPage = 1000
         logger.debug("Parsing {0}".format(self.__class__))
 
-        for t in self.StoreItemType:
+        try:
+            for t in self.StoreItemType:
 
-            logger.debug("Parsing {0}".format(t))
-            page = 1
-            totalPage = 1000
+                logger.debug("Parsing {0}".format(t))
+                page = 1
+                totalPage = 1000
 
-            while(page <= totalPage):
-                logger.debug("Parsing page {0}".format(page))
+                while(page <= totalPage):
+                    logger.debug("Parsing page {0}".format(page))
 
-                soup = BeautifulSoup(urlopen("{0}extra_type={1}&page={2}".format(self.InitialPageURL, t, page)).read(), "html.parser")
-                if totalPage == 1000:
-                    if soup.find("ul", "pagination") == None:
-                        totalPage = 1
-                    else:
-                        totalPage = int(list(soup.find("ul", "pagination").descendants)[-7])
+                    soup = BeautifulSoup(urlopen("{0}extra_type={1}&page={2}".format(self.InitialPageURL, t, page)).read(), "html.parser")
+                    if totalPage == 1000:
+                        if soup.find("ul", "pagination") == None:
+                            totalPage = 1
+                        else:
+                            totalPage = int(list(soup.find("ul", "pagination").descendants)[-7])
 
-                self._currentPage = soup
-                self.ParseCurrentPage()
+                    self._currentPage = soup
+                    self.ParseCurrentPage()
 
-                page = page + 1
-                
-                await asyncio.sleep(5)
+                    page = page + 1
+                    
+                    await asyncio.sleep(5)
+
+            return True
+
+        except:
+            logger.info("Error while crawling")
+            return False
 
 
 

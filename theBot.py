@@ -28,7 +28,7 @@ from dataLayer import DataLayer
 load_dotenv()
 
 TOKEN = getenv("TOKEN")
-VERSION = "3.0"
+VERSION = "3.1"
 REFRESH = int(getenv("refreshTick"))
 ARXAVGPRICE = 0.0006213672
 CURRENTTICK = 0
@@ -91,6 +91,7 @@ async def checkNotify():
                         await channel.send("Il y a du neuf sur le store {0.mention} !".format(role))                        
                     else:
                         dataLayer.SetServerAsNotified(server.ServerId)
+                        logger.warning("Wrong channel for server {0.name}, skipping it".format(real_Server.name))
                         continue
 
                     if len(newItemsToBuy) < 6:
@@ -151,14 +152,13 @@ async def checkNotify():
 
 @atexit.register
 async def close_handle():
-    print("test")
-    bot.close()
+    await bot.close()
 
 
 
 
 @bot.command()
-async def pigeon(ctx, *, args):
+async def pigeon2(ctx, *, args):
     storeItems = dataLayer.Query(args)
 
     if len(storeItems) == 0:
@@ -182,6 +182,17 @@ async def pigeon(ctx, *, args):
 
 
 @bot.command()
+async def pigeon_queryhelp(ctx):
+    helpEmbed = discord.Embed(title = "Symboles", description = "A ajouter à vos mots recherchés")
+    helpEmbed.add_field(name = "+", value = "Mot obligatoirement présent dans le résultat", inline = False)
+    helpEmbed.add_field(name = "-", value = "Mot impérativement absent du résultat", inline = False)
+    helpEmbed.add_field(name = "*", value = "Joker, la suite du mot peut-être n'importe quoi", inline = False)
+    helpEmbed.add_field(name = '"', value = "Groupe les mots entre eux", inline = False)
+    helpEmbed.set_footer(text = "Exemple: tous les paintjob ""pulse"" de l'Imperial Cutter\n!pigeon +cutter pul*")
+    await ctx.send("Voici une aide afin d'optimiser votre recherche et ainsi trouver plus rapidement comment dépenser vos ARX", embed = helpEmbed)
+
+
+@bot.command()
 async def reset_tick(ctx, arg):
     ctx.send(arg)
     if ctx.author.guild_permissions.administrator:
@@ -201,6 +212,14 @@ async def refresh_store(ctx):
 
 
 
+@bot.command()
+async def pigeon_channel(ctx):
+    if ctx.author.guild_permissions.administrator:
+        await ctx.send("OK {0.author.mention}, je ferai mes annonces ici".format(ctx))
+        dataLayer.SetPigeonChannel(ctx.guild, ctx.channel)
+
+
+
 @bot.event
 async def on_guild_join(server):
     logger.info("Server {0.name} add the bot, registering it".format(server))
@@ -209,7 +228,7 @@ async def on_guild_join(server):
 
 
 @bot.event
-async def on_guild_join(server):
+async def on_guild_leave(server):
     logger.info("Server {0.name} removed the bot, unregistering it".format(server))
     dataLayer.UnregisterDiscordServer(server.id, server.name)
 

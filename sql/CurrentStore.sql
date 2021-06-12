@@ -6,3 +6,4 @@ CREATE TABLE CurrentStore
     url character varying(255),
     imageurl character varying(512)
 );
+CREATE FULLTEXT INDEX idx_item_name ON CurrentStore(name);
