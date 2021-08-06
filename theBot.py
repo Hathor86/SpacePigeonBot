@@ -91,7 +91,7 @@ async def checkNotify():
                         await channel.send("Il y a du neuf sur le store {0.mention} !".format(role))                        
                     else:
                         dataLayer.SetServerAsNotified(server.ServerId)
-                        logger.warning("Wrong channel for server {0.name}, skipping it".format(real_Server.name))
+                        logger.warning("Wrong channel for server {0.name}, skipping it".format(real_Server))
                         continue
 
                     if len(newItemsToBuy) < 6:
@@ -123,7 +123,7 @@ async def checkNotify():
                         if sentence != "" and discountedItems != 0:
                             sentence += " et "
                         if discountedItems !=0:
-                            sentence += "{0} objets en réduction (une économie possible de **{1:.2f} ARX** ({2:.2f}€ environ))".format(discountedItems, totalDiscount, totalDiscount * ARXAVGPRICE)
+                            sentence += "{0} objets en réduction (une économie possible de **{1:.2f} ARX** ({2:.2f}€ environ))".format(discountedItems, totalDiscount, float(totalDiscount) * ARXAVGPRICE)
                         sentence += "\nPar souci pour votre portefeuille, j'en ai sélectionné 5."
 
                         await channel.send(sentence)
@@ -158,7 +158,7 @@ async def close_handle():
 
 
 @bot.command()
-async def pigeon2(ctx, *, args):
+async def pigeon(ctx, *, args):
     storeItems = dataLayer.Query(args)
 
     if len(storeItems) == 0:
